@@ -62,6 +62,25 @@
   .btn-sm{padding:6px 12px;font-size:13px;}
   .btn-perigo{background:#fdeaea;color:var(--vermelho-escuro);}
   .btn-perigo:hover{background:#f9d5d5;}
+  /* NOTIFICAÇÕES */
+  .badge-notif{
+    display:inline-block;background:var(--vermelho);color:#fff;
+    font-size:11px;font-weight:800;line-height:1;
+    padding:3px 6px;border-radius:20px;margin-left:5px;vertical-align:middle;
+  }
+  .notif{
+    display:flex;gap:12px;align-items:flex-start;
+    background:#fff;border:1px solid var(--cinza-borda);border-left-width:4px;
+    border-radius:10px;padding:13px 15px;margin-bottom:10px;
+  }
+  .notif.nao-lida{background:#fffdf5;border-left-color:#e0a800;}
+  .notif.lida{border-left-color:var(--cinza-borda);opacity:.72;}
+  .notif .icone{font-size:22px;line-height:1;flex-shrink:0;}
+  .notif .corpo{flex:1;min-width:0;}
+  .notif .titulo{font-weight:700;font-size:14px;margin-bottom:2px;}
+  .notif .detalhe{font-size:13px;color:var(--cinza-texto);line-height:1.5;word-break:break-word;}
+  .notif .quando{font-size:11.5px;color:var(--cinza-texto);margin-top:4px;}
+
   .btn-detalhes{background:#33373d;color:#fff;}
   .btn-detalhes:hover{filter:brightness(1.25);}
 
@@ -702,6 +721,10 @@ let catalogos = lerCatalogosPublicados() || carregar('lv_catalogos', []) || [];
 salvar('lv_catalogos', catalogos);
 let catalogoAtivo = 'todos';
 
+/* Avisos para o administrador. Vivem só no banco: são gravados pelo
+   navegador do visitante e lidos pelo do dono da loja. */
+let eventos = [];
+
 let pedidos = carregar('lv_pedidos', []);
 let historicoCancelamentos = carregar('lv_historico_cancelamentos', []);
 let contas = carregar('lv_contas', []);
@@ -819,12 +842,25 @@ function fazerLoginCliente(){
   mostrarToast('Login realizado com sucesso! 👋');
 }
 
+/* Confere o FORMATO do e-mail: algo antes do @, algo depois, e um ponto com
+   ao menos duas letras no fim. Não tem como saber daqui se a caixa existe de
+   verdade — para isso só enviando um e-mail de confirmação. */
+function emailValido(email){
+  return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(String(email || '').trim());
+}
+
 function criarConta(){
   const nome = document.getElementById('cadNome').value.trim();
   const email = document.getElementById('cadEmail').value.trim().toLowerCase();
   const senha = document.getElementById('cadSenha').value;
   if(!nome || !email || !senha){
     mostrarErro('erroCadastro', 'Preencha todos os campos.');
+    return;
+  }
+  if(!emailValido(email)){
+    mostrarErro('erroCadastro', 'Digite um e-mail válido. Exemplo: nome@provedor.com');
+    registrarEvento('conta_invalida', 'Tentativa de cadastro com e-mail inválido',
+      `Nome informado: ${nome} — e-mail recusado: ${email}`);
     return;
   }
   if(senha.length < 4){
@@ -851,6 +887,7 @@ function criarConta(){
   document.getElementById('cadSenha').value = '';
   fecharModal('overlayCadastro');
   renderizarAreaConta();
+  registrarEvento('conta', 'Nova conta criada', `${novaConta.nome} — ${novaConta.email}`);
   mostrarToast('Conta criada com sucesso! 🎉');
   if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
 }
@@ -1120,13 +1157,13 @@ function blocoImagem(p){
   const src = fonteImagem(p);
   return src
     ? `<img src="${escaparAtributo(src)}" alt="${escaparAtributo(p.nome)}">`
-    : (p.emoji || '📦');
+    : escapeHtml(p.emoji || '📦');
 }
 function miniaturaProduto(p, classe){
   const src = fonteImagem(p);
   return src
     ? `<img class="${classe}" src="${escaparAtributo(src)}" alt="${escaparAtributo(p.nome)}">`
-    : `<span style="font-size:20px;">${p.emoji || '📦'}</span>`;
+    : `<span style="font-size:20px;">${escapeHtml(p.emoji || '📦')}</span>`;
 }
 
 async function selecionarFoto(input){
@@ -1317,6 +1354,77 @@ async function enviarFotoParaBanco(blob){
   return data.publicUrl;
 }
 
+/* ---- notificações do administrador ----
+   Quem grava é o navegador do visitante; quem lê é só o administrador.
+   Falha aqui nunca pode atrapalhar a compra: se o aviso não for gravado, a
+   loja segue normalmente e o erro fica só no console. */
+async function registrarEvento(tipo, titulo, detalhe){
+  if(!bancoAtivo) return;
+  try{
+    const { error } = await bd.from('eventos').insert({
+      tipo,
+      titulo: String(titulo).slice(0, 120),
+      detalhe: String(detalhe || '').slice(0, 500),
+      cliente: clienteLogado
+        ? `${clienteLogado.nome} (${clienteLogado.email})`.slice(0, 200)
+        : 'Visitante não identificado',
+      lido: false
+    });
+    if(error) console.warn('[notificação]', error);
+  }catch(e){ console.warn('[notificação]', e); }
+}
+
+async function carregarEventos(){
+  if(!bancoAtivo || !adminLogado) return;
+  try{
+    const { data, error } = await bd.from('eventos')
+      .select('*').order('criado_em', {ascending:false}).limit(200);
+    if(error){ avisarErroBanco(error, 'ler notificações'); return; }
+    eventos = data || [];
+  }catch(e){ avisarErroBanco(e, 'ler notificações'); }
+}
+
+function contarNaoLidas(){
+  return eventos.filter(e => !e.lido).length;
+}
+
+async function marcarNotificacoesLidas(){
+  const ids = eventos.filter(e => !e.lido).map(e => e.id);
+  if(ids.length === 0){ mostrarToast('Nenhuma notificação nova.'); return; }
+  try{
+    const { error } = await bd.from('eventos').update({lido:true}).in('id', ids);
+    if(error){ avisarErroBanco(error, 'marcar notificações'); return; }
+    eventos.forEach(e => { e.lido = true; });
+    renderizarAdmin();
+    mostrarToast('Notificações marcadas como lidas.');
+  }catch(e){ avisarErroBanco(e, 'marcar notificações'); }
+}
+
+function limparNotificacoes(){
+  if(eventos.length === 0) return;
+  pedirConfirmacao(
+    'Limpar notificações',
+    'Apagar todas as notificações? Esta ação não pode ser desfeita.',
+    async function(){
+      try{
+        const { error } = await bd.from('eventos')
+          .delete().in('id', eventos.map(e => e.id));
+        if(error){ avisarErroBanco(error, 'limpar notificações'); return; }
+        eventos = [];
+        renderizarAdmin();
+        mostrarToast('Notificações apagadas.');
+      }catch(e){ avisarErroBanco(e, 'limpar notificações'); }
+    },
+    'Sim, apagar',
+    '🔔'
+  );
+}
+
+async function atualizarNotificacoes(){
+  await carregarEventos();
+  renderizarAdmin();
+}
+
 /* ---- entrar e sair da administração ---- */
 async function confirmarSeEhAdmin(){
   try{
@@ -1361,6 +1469,7 @@ async function entrarComoAdmin(){
   salvar('lv_sessao_admin', true);
   abaAdminAtiva = 'produtos';
   await carregarPedidosDoBanco();
+  await carregarEventos();
   renderizarAdmin();
   renderizarPedidos();
   mostrarToast('Bem-vindo(a) à administração! 🔐');
@@ -1386,6 +1495,7 @@ async function conectarBanco(){
     if(data && data.session && await confirmarSeEhAdmin()){
       adminLogado = true;
       salvar('lv_sessao_admin', true);
+      await carregarEventos();
     }
   }catch(e){ console.warn('[banco] sessão', e); }
   await carregarDoBanco();
@@ -1670,7 +1780,13 @@ function adicionarAoCarrinho(produtoId){
     return;
   }
   if(item){ item.qtd += 1; }
-  else{ carrinho.push({produtoId, qtd:1}); }
+  else{
+    carrinho.push({produtoId, qtd:1});
+    /* Só na primeira unidade: avisar a cada clique encheria a aba de
+       notificações repetidas do mesmo produto. */
+    registrarEvento('carrinho', 'Produto adicionado ao carrinho',
+      `${produto.nome} — ${formatarPreco(produto.preco)}`);
+  }
   salvar('lv_carrinho', carrinho);
   atualizarBadgeCarrinho();
   mostrarToast(`${produto.nome} adicionado ao carrinho`);
@@ -1770,6 +1886,9 @@ function irParaPagamento(){
     document.getElementById('pagNome').value = clienteLogado.nome;
     document.getElementById('pagEmail').value = clienteLogado.email;
   }
+
+  registrarEvento('pagamento', 'Cliente chegou na tela de pagamento',
+    `${carrinho.length} item(ns) — total ${formatarPreco(total)}`);
 
   abrirModal('overlayPagamento');
 }
@@ -1987,10 +2106,10 @@ function cardPedido(ped, comCliente, comAcoes){
     <div class="pedido-card">
       <div class="pedido-cabecalho">
         <div>
-          <div class="id">${ped.numero}</div>
+          <div class="id">${escapeHtml(ped.numero)}</div>
           <div class="data">${data}${comCliente ? ' · ' + escapeHtml(ped.clienteNome) : ''}</div>
         </div>
-        <span class="status-tag ${classeStatus}">${ped.status}</span>
+        <span class="status-tag ${classeStatus}">${escapeHtml(ped.status)}</span>
       </div>
       <div class="pedido-corpo">
         ${ped.itens.length} item(ns) · Total: <b style="color:var(--preto)">${formatarPreco(ped.total)}</b>
@@ -2103,18 +2222,18 @@ function verDetalhesPedido(pedId){
   if(!ped) return;
   const data = new Date(ped.data).toLocaleString('pt-BR');
   const itensHtml = ped.itens.map(i => `
-    <div class="linha"><span>${i.qtd}x ${escapeHtml(i.nome)}</span><span>${formatarPreco(i.preco*i.qtd)}</span></div>
+    <div class="linha"><span>${escapeHtml(i.qtd)}x ${escapeHtml(i.nome)}</span><span>${formatarPreco(i.preco*i.qtd)}</span></div>
   `).join('');
   document.getElementById('detalhesPedidoConteudo').innerHTML = `
     <div class="resumo-pedido" style="margin-top:10px;">
-      <div class="linha"><span>Número</span><span>${ped.numero}</span></div>
+      <div class="linha"><span>Número</span><span>${escapeHtml(ped.numero)}</span></div>
       <div class="linha"><span>Data</span><span>${data}</span></div>
       <div class="linha"><span>Cliente</span><span>${escapeHtml(ped.clienteNome)}</span></div>
       <div class="linha"><span>E-mail</span><span>${escapeHtml(ped.clienteEmail)}</span></div>
       <div class="linha"><span>Recebimento</span><span>${ped.tipoRecebimento === 'retirada' ? '🏬 Retirada no local' : '🚚 Entrega'}</span></div>
       ${ped.tipoRecebimento !== 'retirada' ? `<div class="linha"><span>CEP</span><span>${escapeHtml(ped.clienteCep || '-')}</span></div>` : ''}
-      <div class="linha"><span>Pagamento</span><span>${rotuloMetodo(ped.metodoPagamento)}</span></div>
-      <div class="linha"><span>Status</span><span>${ped.status}</span></div>
+      <div class="linha"><span>Pagamento</span><span>${escapeHtml(rotuloMetodo(ped.metodoPagamento))}</span></div>
+      <div class="linha"><span>Status</span><span>${escapeHtml(ped.status)}</span></div>
       <div style="border-top:1px solid var(--cinza-borda);margin:10px 0;"></div>
       ${itensHtml}
       <div class="linha total"><span>Total</span><span>${formatarPreco(ped.total)}</span></div>
@@ -2185,6 +2304,7 @@ function renderizarAdmin(){
       <button class="${abaAdminAtiva==='produtos'?'ativo':''}" onclick="mudarAbaAdmin('produtos')">📦 Produtos</button>
       <button class="${abaAdminAtiva==='catalogos'?'ativo':''}" onclick="mudarAbaAdmin('catalogos')">🏷️ Catálogos</button>
       <button class="${abaAdminAtiva==='pedidos'?'ativo':''}" onclick="mudarAbaAdmin('pedidos')">📋 Pedidos</button>
+      <button class="${abaAdminAtiva==='notificacoes'?'ativo':''}" onclick="mudarAbaAdmin('notificacoes')">🔔 Notificações${contarNaoLidas() ? `<span class="badge-notif">${contarNaoLidas()}</span>` : ''}</button>
       <button class="${abaAdminAtiva==='contas'?'ativo':''}" onclick="mudarAbaAdmin('contas')">👥 Contas cadastradas</button>
       <button class="${abaAdminAtiva==='historico'?'ativo':''}" onclick="mudarAbaAdmin('historico')">🗑️ Histórico de cancelamentos</button>
     </div>
@@ -2298,6 +2418,36 @@ function renderizarSubAbaAdmin(){
         </table>
       </div>
     `;
+  } else if(abaAdminAtiva === 'notificacoes'){
+    if(!bancoAtivo){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">🔔</div>
+        As notificações precisam do banco de dados configurado.<br>
+        Sem ele, o que acontece no navegador do visitante não chega até aqui.</div>`;
+      return;
+    }
+    const topo = `
+      <div style="margin-bottom:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+        <button class="btn btn-secundario" onclick="atualizarNotificacoes()">🔄 Atualizar</button>
+        <button class="btn btn-outline" onclick="marcarNotificacoesLidas()">Marcar todas como lidas</button>
+        <button class="btn btn-perigo" onclick="limparNotificacoes()">Limpar tudo</button>
+      </div>`;
+    if(eventos.length === 0){
+      cont.innerHTML = topo + `<div class="vazio"><div class="emoji">🔔</div>Nenhuma notificação por enquanto.</div>`;
+      return;
+    }
+    const icones = {conta:'👤', conta_invalida:'⚠️', carrinho:'🛒', pagamento:'💳'};
+    cont.innerHTML = topo + eventos.map(ev => `
+      <div class="notif ${ev.lido ? 'lida' : 'nao-lida'}">
+        <div class="icone">${icones[ev.tipo] || '🔔'}</div>
+        <div class="corpo">
+          <div class="titulo">${escapeHtml(ev.titulo)}</div>
+          ${ev.detalhe ? `<div class="detalhe">${escapeHtml(ev.detalhe)}</div>` : ''}
+          <div class="detalhe">${escapeHtml(ev.cliente || '')}</div>
+          <div class="quando">${new Date(ev.criado_em).toLocaleString('pt-BR')}</div>
+        </div>
+      </div>
+    `).join('');
+
   } else if(abaAdminAtiva === 'historico'){
     if(historicoCancelamentos.length === 0){
       cont.innerHTML = `<div class="vazio"><div class="emoji">🗑️</div>Nenhum pedido cancelado ou excluído até agora.</div>`;
