@@ -1,39 +1,61 @@
 {
   "produtos": [
     {
-      "id": 1790188511378,
-      "nome": "celular",
+      "id": 1790365298880,
+      "nome": "Iphone 18 Pro Max",
       "descricao": "",
-      "preco": 1500,
+      "preco": 21000,
       "estoque": 99,
       "emoji": "📦",
-      "imagem": "",
+      "imagem": "https://blaypwcojloqgrucfrfj.supabase.co/storage/v1/object/public/fotos/produto-1790365297381-2888.jpg",
       "imagemId": "",
-      "catalogos": []
+      "detalhes": "",
+      "catalogos": [
+        1790365257787
+      ]
     },
     {
-      "id": 1790188539090,
-      "nome": "coisas",
-      "descricao": "",
-      "preco": 13,
-      "estoque": 22,
+      "id": 1790368085681,
+      "nome": "Lego",
+      "descricao": "brinquedo divertido",
+      "preco": 268.5,
+      "estoque": 100,
       "emoji": "📦",
-      "imagem": "",
+      "imagem": "https://blaypwcojloqgrucfrfj.supabase.co/storage/v1/object/public/fotos/produto-1790368084630-485.jpg",
       "imagemId": "",
-      "catalogos": []
+      "detalhes": "",
+      "catalogos": [
+        1790368027645
+      ]
     },
     {
-      "id": 1790188562412,
-      "nome": "PC",
-      "descricao": "",
-      "preco": 7499.99,
-      "estoque": 51,
+      "id": 1790621666153,
+      "nome": "Pulseira cravejada",
+      "descricao": "✨ **PULSEIRA DE LUXO — ELEGÂNCIA QUE CHAMA ATENÇÃO!** ✨\n\nDê um toque de sofisticação ao seu visual com essa **linda pulseira cravejada**, com detalhes brilhantes que destacam o acessório e deixam qualquer produção muito mais elegante. 💎\n\nSeu design moderno e luxuoso combina perfeitamente com diferentes estilos, podendo ser usada tanto no dia a dia quanto em ocasiões especiais.\n\n💎 **Design sofisticado e marcante**\n✨ Brilho incrível\n🔥 Visual elegante e moderno\n🎁 Perfeita para presentear alguém especial\n💰 **Por apenas R$ [VALOR]**\n\nUm acessório lindo, versátil e com aparência premium — **um ótimo custo-benefício para quem gosta de se destacar com estilo!**\n\n📩 Garanta a sua e deixe seu visual ainda mais elegante!",
+      "preco": 1.5,
+      "estoque": 10,
       "emoji": "📦",
-      "imagem": "",
+      "imagem": "https://blaypwcojloqgrucfrfj.supabase.co/storage/v1/object/public/fotos/produto-1790621665004-245.jpg",
       "imagemId": "",
-      "catalogos": []
+      "detalhes": "",
+      "catalogos": [
+        1790621672834
+      ]
     }
   ],
-  "catalogos": [],
-  "atualizadoEm": "2026-09-23T18:52:04.169Z"
+  "catalogos": [
+    {
+      "id": 1790368027645,
+      "nome": "Briquedos"
+    },
+    {
+      "id": 1790365257787,
+      "nome": "Eletronicos"
+    },
+    {
+      "id": 1790621672834,
+      "nome": "Joia"
+    }
+  ],
+  "atualizadoEm": "2026-09-28T20:24:59.385Z"
 }
