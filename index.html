@@ -763,6 +763,11 @@ let catalogoAtivo = 'todos';
    navegador do visitante e lidos pelo do dono da loja. */
 let eventos = [];
 
+/* Fichas dos clientes vindas do banco. Substituem a lista local `contas`
+   quando o banco está ativo — as contas locais só existem no modo
+   demonstração, presas ao navegador de quem se cadastrou. */
+let clientesBanco = [];
+
 let pedidos = carregar('lv_pedidos', []);
 let historicoCancelamentos = carregar('lv_historico_cancelamentos', []);
 let contas = carregar('lv_contas', []);
@@ -859,25 +864,77 @@ function abrirCadastroCliente(){ limparErros(); abrirModal('overlayCadastro'); }
 function trocarParaCadastro(){ fecharModal('overlayLogin'); abrirCadastroCliente(); }
 function trocarParaLogin(){ fecharModal('overlayCadastro'); abrirLoginCliente(); }
 
-function fazerLoginCliente(){
+async function fazerLoginCliente(){
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const senha = document.getElementById('loginSenha').value;
   if(!email || !senha){
     mostrarErro('erroLogin', 'Preencha e-mail e senha.');
     return;
   }
-  const conta = contas.find(c => c.email.toLowerCase() === email && c.senha === senha);
-  if(!conta){
-    mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
-    return;
+
+  if(bancoAtivo){
+    const { data, error } = await bd.auth.signInWithPassword({email, password: senha});
+    if(error){
+      const msg = error.message || '';
+      if(/email not confirmed/i.test(msg)){
+        mostrarErro('erroLogin', 'Confirme o e-mail que enviamos antes de entrar.');
+      }else if(/invalid login credentials/i.test(msg)){
+        mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
+      }else{
+        mostrarErro('erroLogin', 'Não consegui entrar: ' + msg);
+      }
+      return;
+    }
+    await entrarComoCliente(data.user, email);
+  }else{
+    /* Modo demonstração, sem banco: a conta existe só neste navegador. */
+    const conta = contas.find(c => c.email.toLowerCase() === email && c.senha === senha);
+    if(!conta){
+      mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
+      return;
+    }
+    clienteLogado = {id: conta.id, nome: conta.nome, email: conta.email};
+    salvar('lv_sessao_cliente', clienteLogado);
   }
-  clienteLogado = {id: conta.id, nome: conta.nome, email: conta.email};
-  salvar('lv_sessao_cliente', clienteLogado);
+
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginSenha').value = '';
   fecharModal('overlayLogin');
   renderizarAreaConta();
+  await carregarPedidosDoBanco();
+  renderizarPedidos();
   mostrarToast('Login realizado com sucesso! 👋');
+}
+
+/* Guarda a ficha de exibição do cliente. A senha nunca passa por aqui: ela
+   fica com o Supabase Auth, que guarda apenas o hash. */
+async function salvarFichaCliente(userId, nome, email){
+  try{
+    const { error } = await bd.from('clientes')
+      .upsert({user_id: userId, nome: nome, email: email});
+    if(error) console.warn('[cliente] ficha', error);
+  }catch(e){ console.warn('[cliente] ficha', e); }
+}
+
+/* Monta a sessão do cliente a partir da conta autenticada. O nome vem da
+   ficha; se ela ainda não existir, usa o que o Auth guardou no cadastro. */
+async function entrarComoCliente(user, emailFallback){
+  let nome = '';
+  try{
+    const { data } = await bd.from('clientes')
+      .select('nome').eq('user_id', user.id).maybeSingle();
+    if(data && data.nome) nome = data.nome;
+  }catch(e){ console.warn('[cliente] ficha', e); }
+  const email = user.email || emailFallback;
+  if(!nome){
+    /* Ficha ainda não existe: acontece quando o projeto exige confirmação por
+       e-mail, já que no cadastro não havia sessão para gravá-la. Cria agora,
+       senão o cliente nunca apareceria na lista do administrador. */
+    nome = (user.user_metadata && user.user_metadata.nome) || email;
+    await salvarFichaCliente(user.id, nome, email);
+  }
+  clienteLogado = {id: user.id, nome: nome, email: email};
+  salvar('lv_sessao_cliente', clienteLogado);
 }
 
 /* Confere o FORMATO do e-mail: algo antes do @, algo depois, e um ponto com
@@ -887,7 +944,7 @@ function emailValido(email){
   return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(String(email || '').trim());
 }
 
-function criarConta(){
+async function criarConta(){
   const nome = document.getElementById('cadNome').value.trim();
   const email = document.getElementById('cadEmail').value.trim().toLowerCase();
   const senha = document.getElementById('cadSenha').value;
@@ -901,6 +958,19 @@ function criarConta(){
       `Nome informado: ${nome} — e-mail recusado: ${email}`);
     return;
   }
+
+  /* Com banco, a conta vira uma conta de verdade no Supabase Auth: a senha
+     é guardada como hash no servidor e a pessoa entra de qualquer aparelho.
+     O mínimo de 6 caracteres é exigência do próprio Supabase. */
+  if(bancoAtivo){
+    if(senha.length < 6){
+      mostrarErro('erroCadastro', 'A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    await criarContaNoBanco(nome, email, senha);
+    return;
+  }
+
   if(senha.length < 4){
     mostrarErro('erroCadastro', 'A senha deve ter no mínimo 4 caracteres.');
     return;
@@ -930,8 +1000,53 @@ function criarConta(){
   if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
 }
 
-function sairCliente(){
+async function criarContaNoBanco(nome, email, senha){
+  const { data, error } = await bd.auth.signUp({
+    email, password: senha, options: {data: {nome}}
+  });
+  if(error){
+    const msg = error.message || '';
+    if(/already registered|already exists|user already/i.test(msg)){
+      mostrarErro('erroCadastro', 'Já existe uma conta com este e-mail.');
+    }else if(/password/i.test(msg)){
+      mostrarErro('erroCadastro', 'Senha muito fraca. Use ao menos 6 caracteres.');
+    }else{
+      mostrarErro('erroCadastro', 'Não consegui criar a conta: ' + msg);
+    }
+    return;
+  }
+
+  document.getElementById('cadNome').value = '';
+  document.getElementById('cadEmail').value = '';
+  document.getElementById('cadSenha').value = '';
+  fecharModal('overlayCadastro');
+
+  /* Sem sessão na resposta, o projeto exige confirmação por e-mail: a conta
+     existe, mas só vale depois que a pessoa clicar no link. */
+  if(!data.session){
+    registrarEvento('conta', 'Nova conta criada (aguardando confirmação)', `${nome} — ${email}`);
+    mostrarToast('Conta criada! Confirme o e-mail que enviamos para entrar.');
+    return;
+  }
+
+  await salvarFichaCliente(data.user.id, nome, email);
+  clienteLogado = {id: data.user.id, nome, email};
+  salvar('lv_sessao_cliente', clienteLogado);
+  renderizarAreaConta();
+  registrarEvento('conta', 'Nova conta criada', `${nome} — ${email}`);
+  mostrarToast('Conta criada com sucesso! 🎉');
+  if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
+}
+
+async function sairCliente(){
+  if(bancoAtivo){
+    try{ await bd.auth.signOut(); }catch(e){ console.warn('[cliente] sair', e); }
+  }
   clienteLogado = null;
+  /* Com banco, a lista de pedidos na tela era a do cliente que saiu: manter
+     na memória mostraria os pedidos dele para quem entrar depois. No modo
+     demonstração os pedidos são locais e não podem ser descartados. */
+  if(bancoAtivo) pedidos = [];
   localStorage.removeItem('lv_sessao_cliente');
   renderizarAreaConta();
   renderizarPedidos();
@@ -1304,7 +1419,7 @@ function pedidoDoBanco(r){
     id: Number(r.id), numero: r.numero, data: r.criado_em,
     clienteNome: r.cliente_nome, clienteEmail: r.cliente_email,
     clienteCep: r.cliente_cep || '', tipoRecebimento: r.tipo_recebimento,
-    clienteContaId: null, metodoPagamento: r.metodo_pagamento,
+    clienteContaId: r.cliente_id || null, metodoPagamento: r.metodo_pagamento,
     itens: Array.isArray(r.itens) ? r.itens : [],
     total: Number(r.total), status: r.status
   };
@@ -1314,6 +1429,7 @@ function pedidoParaBanco(ped){
     id: ped.id, numero: ped.numero, criado_em: ped.data,
     cliente_nome: ped.clienteNome, cliente_email: ped.clienteEmail,
     cliente_cep: ped.clienteCep || '', tipo_recebimento: ped.tipoRecebimento,
+    cliente_id: ped.clienteContaId || null,
     metodo_pagamento: ped.metodoPagamento, itens: ped.itens,
     total: ped.total, status: ped.status
   };
@@ -1340,8 +1456,12 @@ async function carregarDoBanco(){
   }catch(e){ avisarErroBanco(e, 'leitura'); }
 }
 
+/* Serve tanto para o admin quanto para o cliente: quem filtra é o banco.
+   As regras de acesso devolvem todos os pedidos para o administrador e
+   apenas os próprios para o cliente logado. */
 async function carregarPedidosDoBanco(){
-  if(!bancoAtivo || !adminLogado) return;
+  if(!bancoAtivo) return;
+  if(!adminLogado && !clienteLogado) return;
   try{
     const { data, error } = await bd.from('pedidos')
       .select('*').order('criado_em', {ascending:false}).limit(500);
@@ -1390,6 +1510,17 @@ async function enviarFotoParaBanco(blob){
   if(error) throw error;
   const { data } = bd.storage.from('fotos').getPublicUrl(nome);
   return data.publicUrl;
+}
+
+/* ---- lista de clientes (só o administrador enxerga) ---- */
+async function carregarClientesDoBanco(){
+  if(!bancoAtivo || !adminLogado) return;
+  try{
+    const { data, error } = await bd.from('clientes')
+      .select('*').order('criado_em', {ascending:false}).limit(500);
+    if(error){ avisarErroBanco(error, 'ler clientes'); return; }
+    clientesBanco = data || [];
+  }catch(e){ avisarErroBanco(e, 'ler clientes'); }
 }
 
 /* ---- notificações do administrador ----
@@ -1463,6 +1594,11 @@ async function atualizarNotificacoes(){
   renderizarAdmin();
 }
 
+async function atualizarClientes(){
+  await carregarClientesDoBanco();
+  renderizarAdmin();
+}
+
 /* ---- entrar e sair da administração ---- */
 async function confirmarSeEhAdmin(){
   try{
@@ -1505,9 +1641,15 @@ async function entrarComoAdmin(){
   }
   adminLogado = true;
   salvar('lv_sessao_admin', true);
+  /* A sessão no servidor é uma só: entrar como administrador substitui
+     qualquer sessão de cliente que houvesse neste navegador. */
+  clienteLogado = null;
+  localStorage.removeItem('lv_sessao_cliente');
+  renderizarAreaConta();
   abaAdminAtiva = 'produtos';
   await carregarPedidosDoBanco();
   await carregarEventos();
+  await carregarClientesDoBanco();
   renderizarAdmin();
   renderizarPedidos();
   mostrarToast('Bem-vindo(a) à administração! 🔐');
@@ -1530,10 +1672,22 @@ async function conectarBanco(){
   }
   try{
     const { data } = await bd.auth.getSession();
-    if(data && data.session && await confirmarSeEhAdmin()){
-      adminLogado = true;
-      salvar('lv_sessao_admin', true);
-      await carregarEventos();
+    if(data && data.session){
+      if(await confirmarSeEhAdmin()){
+        adminLogado = true;
+        salvar('lv_sessao_admin', true);
+        await carregarEventos();
+        await carregarClientesDoBanco();
+      }else{
+        /* Sessão de cliente: quem abriu o site já estava logado na loja. */
+        await entrarComoCliente(data.session.user, data.session.user.email);
+      }
+      await carregarPedidosDoBanco();
+    }else{
+      /* Sem sessão no servidor não há cliente logado, por mais que este
+         navegador tenha guardado algo de uma visita anterior. */
+      clienteLogado = null;
+      localStorage.removeItem('lv_sessao_cliente');
     }
   }catch(e){ console.warn('[banco] sessão', e); }
   await carregarDoBanco();
@@ -2487,17 +2641,32 @@ function renderizarSubAbaAdmin(){
     }
     cont.innerHTML = ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
   } else if(abaAdminAtiva === 'contas'){
-    if(contas.length === 0){
-      cont.innerHTML = `<div class="vazio"><div class="emoji">👥</div>Nenhuma conta cadastrada ainda.</div>`;
+    /* Com banco, as contas são de verdade e vêm do servidor. Sem banco, a
+       lista local só enxerga quem se cadastrou neste mesmo navegador. */
+    const lista = bancoAtivo
+      ? clientesBanco.map(c => ({id: c.user_id, nome: c.nome, email: c.email, dataCadastro: c.criado_em}))
+      : [...contas];
+    const topo = bancoAtivo
+      ? `<div style="margin-bottom:14px;display:flex;justify-content:flex-end;">
+           <button class="btn btn-secundario" onclick="atualizarClientes()">🔄 Atualizar</button>
+         </div>`
+      : `<div style="background:#fff4e0;color:#8a6400;padding:11px 14px;border-radius:8px;
+                     font-size:13px;margin-bottom:14px;line-height:1.5;">
+           Sem banco de dados configurado, esta lista mostra apenas quem se
+           cadastrou <b>neste navegador</b>. Contas criadas por clientes em
+           outros aparelhos não aparecem aqui.
+         </div>`;
+    if(lista.length === 0){
+      cont.innerHTML = topo + `<div class="vazio"><div class="emoji">👥</div>Nenhuma conta cadastrada ainda.</div>`;
       return;
     }
-    cont.innerHTML = `
+    cont.innerHTML = topo + `
       <div class="tabela-wrap">
         <table>
           <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th><th>Pedidos</th></tr></thead>
           <tbody>
-            ${[...contas].sort((a,b)=> new Date(b.dataCadastro) - new Date(a.dataCadastro)).map(c => {
-              const qtdPedidos = pedidos.filter(p => p.clienteContaId === c.id).length;
+            ${lista.sort((a,b)=> new Date(b.dataCadastro) - new Date(a.dataCadastro)).map(c => {
+              const qtdPedidos = pedidos.filter(p => String(p.clienteContaId) === String(c.id)).length;
               return `
                 <tr>
                   <td>${escapeHtml(c.nome)}</td>
@@ -2587,6 +2756,11 @@ async function logoutAdmin(){
   localStorage.removeItem('lv_sessao_admin');
   if(bancoAtivo){
     try{ await bd.auth.signOut(); }catch(e){ console.warn('[banco] sair', e); }
+    /* Sair da administração encerra a sessão inteira no servidor, então os
+       dados que dependiam dela não podem continuar na tela. */
+    pedidos = [];
+    eventos = [];
+    clientesBanco = [];
   }
   renderizarAdmin();
   if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
