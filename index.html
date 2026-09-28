@@ -1,0 +1,2476 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comércio Do Luiz💨</title>
+<style>
+  :root{
+    --vermelho:#d71920;
+    --vermelho-escuro:#a81318;
+    --preto:#1a1a1a;
+    --cinza-fundo:#f5f5f6;
+    --cinza-borda:#e2e2e4;
+    --cinza-texto:#5c5c60;
+    --branco:#ffffff;
+    --verde:#1c8a4b;
+    --sombra:0 2px 10px rgba(0,0,0,0.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',Arial,sans-serif;
+    background:var(--cinza-fundo);
+    color:var(--preto);
+    padding-bottom:60px;
+  }
+  header.topo{
+    background:var(--branco);
+    border-bottom:1px solid var(--cinza-borda);
+    position:sticky;top:0;z-index:100;
+  }
+  .topo-inner{
+    max-width:1100px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;gap:16px;flex-wrap:wrap;
+  }
+  .logo{
+    font-size:22px;font-weight:800;color:var(--vermelho);
+    display:flex;align-items:center;gap:8px;
+  }
+  .conta-area{display:flex;align-items:center;gap:10px;}
+  .selo-catalogo{
+    font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;
+    background:#eef1f4;color:var(--cinza-texto);white-space:nowrap;
+  }
+  .selo-catalogo.ok{background:#e8f6ee;color:var(--verde);}
+  .selo-catalogo.off{background:#fff4e0;color:#b8860b;}
+  .conta-area .ola{font-size:14px;color:var(--cinza-texto);}
+  .conta-area .ola b{color:var(--preto);}
+  .btn{
+    border:none;border-radius:8px;padding:10px 18px;
+    font-size:14px;font-weight:600;cursor:pointer;
+    transition:filter .15s, transform .05s;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primario{background:var(--vermelho);color:#fff;}
+  .btn-primario:hover{filter:brightness(1.08);}
+  .btn-secundario{background:#ececee;color:var(--preto);}
+  .btn-secundario:hover{filter:brightness(0.97);}
+  .btn-outline{background:transparent;border:1.5px solid var(--cinza-borda);color:var(--preto);}
+  .btn-outline:hover{border-color:var(--vermelho);color:var(--vermelho);}
+  .btn-full{width:100%;}
+  .btn-sm{padding:6px 12px;font-size:13px;}
+  .btn-perigo{background:#fdeaea;color:var(--vermelho-escuro);}
+  .btn-perigo:hover{background:#f9d5d5;}
+  .btn-detalhes{background:#33373d;color:#fff;}
+  .btn-detalhes:hover{filter:brightness(1.25);}
+
+  nav.abas{
+    max-width:1100px;margin:0 auto;padding:0 20px;
+    display:flex;gap:6px;border-top:1px solid var(--cinza-borda);
+    overflow-x:auto;
+  }
+  nav.abas button{
+    background:none;border:none;padding:14px 16px;
+    font-size:14px;font-weight:600;color:var(--cinza-texto);
+    cursor:pointer;border-bottom:3px solid transparent;
+    white-space:nowrap;
+  }
+  nav.abas button.ativo{color:var(--vermelho);border-bottom-color:var(--vermelho);}
+
+  main{max-width:1100px;margin:0 auto;padding:24px 20px;}
+  .secao{display:none;}
+  .secao.ativa{display:block;}
+
+  /* LOJA */
+  .loja-topo{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+  .loja-topo h1{font-size:22px;}
+  .grid-produtos{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:18px;
+  }
+  .card-produto{
+    background:var(--branco);border:1px solid var(--cinza-borda);
+    border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:var(--sombra);
+  }
+  .card-produto .imagem{
+    height:130px;background:var(--cinza-fundo);
+    display:flex;align-items:center;justify-content:center;
+    font-size:48px;
+  }
+  .card-produto .imagem img{width:100%;height:100%;object-fit:cover;display:block;}
+  .miniatura{width:42px;height:42px;border-radius:8px;object-fit:cover;display:block;}
+  .mini-item{width:34px;height:34px;border-radius:7px;object-fit:cover;display:block;}
+  .foto-campo{display:flex;gap:14px;align-items:flex-start;}
+  .foto-preview{
+    width:96px;height:96px;border-radius:10px;border:1.5px dashed var(--cinza-borda);
+    background:var(--cinza-fundo);display:flex;align-items:center;justify-content:center;
+    overflow:hidden;flex-shrink:0;font-size:12px;color:var(--cinza-texto);text-align:center;
+  }
+  .foto-preview img{width:100%;height:100%;object-fit:cover;display:block;}
+  .foto-acoes{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+  .foto-dica{font-size:12px;color:var(--cinza-texto);line-height:1.4;}
+  .lista-catalogos{display:flex;flex-wrap:wrap;gap:8px;}
+  .lista-catalogos label{
+    display:flex;align-items:center;gap:7px;border:1.5px solid var(--cinza-borda);
+    border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;background:#fff;
+  }
+  .lista-catalogos label:has(input:checked){
+    border-color:var(--vermelho);background:#fdeaea;color:var(--vermelho);font-weight:600;
+  }
+  .lista-catalogos .aviso{font-size:12.5px;color:var(--cinza-texto);line-height:1.5;}
+  .filtros-catalogo{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+  .filtros-catalogo button{
+    border:1.5px solid var(--cinza-borda);background:#fff;border-radius:20px;
+    padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;color:var(--cinza-texto);
+  }
+  .filtros-catalogo button:hover{border-color:var(--vermelho);color:var(--vermelho);}
+  .filtros-catalogo button.ativo{border-color:var(--vermelho);background:var(--vermelho);color:#fff;}
+  .etiqueta-catalogo{
+    display:inline-block;background:#f1f2f4;color:var(--cinza-texto);border-radius:20px;
+    padding:3px 9px;font-size:11.5px;font-weight:600;margin:2px 4px 2px 0;
+  }
+  .card-produto .info{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1;}
+  .card-produto .nome{font-weight:700;font-size:15px;}
+  .card-produto .desc{font-size:12.5px;color:var(--cinza-texto);line-height:1.5;}
+  /* Descrições longas ficam cortadas em 3 linhas. Sem isso, um único produto
+     com texto grande estica a linha inteira da grade e deixa os cards
+     vizinhos ocos. O botão "ver mais" devolve o texto completo. */
+  .card-produto .desc.truncada{
+    display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;
+    -webkit-box-orient:vertical;overflow:hidden;
+  }
+  .card-produto .ver-mais{
+    background:none;border:none;padding:0;align-self:flex-start;
+    color:var(--vermelho);font-size:12.5px;font-weight:700;cursor:pointer;
+  }
+  .card-produto .ver-mais:hover{text-decoration:underline;}
+  /* Empurra preço, estoque e botões para a base, independente do tamanho
+     do texto acima. */
+  .card-produto .preco{font-size:18px;font-weight:800;color:var(--vermelho);margin-top:auto;}
+  .card-produto .estoque{font-size:12px;color:var(--cinza-texto);}
+  .card-produto .estoque.baixo{color:#b8860b;}
+  .card-produto .estoque.zero{color:var(--vermelho);font-weight:700;}
+  .card-produto .acoes{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
+  /* O texto de detalhes é digitado num textarea: white-space preserva as
+     quebras de linha que a pessoa escreveu, sem precisar de HTML. */
+  .detalhes-produto{
+    white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--preto);
+  }
+  .detalhes-produto-topo{
+    display:flex;gap:14px;align-items:center;margin-bottom:14px;
+  }
+  .detalhes-produto-foto{
+    width:84px;height:84px;border-radius:10px;background:var(--cinza-fundo);
+    display:flex;align-items:center;justify-content:center;font-size:38px;
+    overflow:hidden;flex-shrink:0;
+  }
+  .detalhes-produto-foto img{width:100%;height:100%;object-fit:cover;display:block;}
+  .detalhes-produto-nome{font-size:19px;font-weight:800;line-height:1.3;}
+  .detalhes-produto-preco{font-size:22px;font-weight:800;color:var(--vermelho);margin-top:4px;}
+  .detalhes-secao{margin-top:18px;}
+  .detalhes-secao h3{
+    font-size:15px;font-weight:800;color:var(--vermelho);margin-bottom:8px;
+  }
+  .vazio{
+    text-align:center;padding:60px 20px;color:var(--cinza-texto);
+  }
+  .vazio .emoji{font-size:40px;margin-bottom:10px;}
+
+  /* CARRINHO FLUTUANTE */
+  .carrinho-fab{
+    position:fixed;bottom:22px;right:22px;
+    background:var(--vermelho);color:#fff;border:none;
+    border-radius:50px;padding:14px 22px;font-weight:700;
+    box-shadow:0 4px 16px rgba(215,25,32,0.35);cursor:pointer;
+    font-size:15px;z-index:150;display:flex;align-items:center;gap:8px;
+  }
+  .carrinho-fab .badge{
+    background:#fff;color:var(--vermelho);border-radius:50%;
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:800;
+  }
+
+  /* MODAIS */
+  .overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);
+    z-index:200;align-items:center;justify-content:center;padding:16px;
+  }
+  .overlay.aberto{display:flex;}
+  .modal{
+    background:#fff;border-radius:14px;max-width:460px;width:100%;
+    max-height:88vh;overflow-y:auto;padding:26px;position:relative;
+  }
+  .modal.modal-lg{max-width:640px;}
+  .modal h2{font-size:19px;margin-bottom:4px;}
+  .modal .sub{font-size:13px;color:var(--cinza-texto);margin-bottom:18px;}
+  .fechar-modal{
+    position:absolute;top:16px;right:16px;background:none;border:none;
+    font-size:20px;cursor:pointer;color:var(--cinza-texto);
+  }
+  .campo{margin-bottom:14px;}
+  .campo label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+  .campo input, .campo textarea, .campo select{
+    width:100%;padding:10px 12px;border:1.5px solid var(--cinza-borda);
+    border-radius:8px;font-size:14px;font-family:inherit;
+  }
+  .campo input:focus, .campo textarea:focus, .campo select:focus{
+    outline:none;border-color:var(--vermelho);
+  }
+  .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .erro-msg{
+    background:#fdeaea;color:var(--vermelho-escuro);padding:10px 12px;
+    border-radius:8px;font-size:13px;margin-bottom:14px;display:none;
+  }
+  .erro-msg.mostrar{display:block;}
+  .sucesso-msg{
+    background:#e8f6ee;color:var(--verde);padding:10px 12px;
+    border-radius:8px;font-size:13px;margin-bottom:14px;display:none;
+  }
+  .sucesso-msg.mostrar{display:block;}
+  .troca-link{text-align:center;font-size:13px;margin-top:14px;color:var(--cinza-texto);}
+  .troca-link a{color:var(--vermelho);text-decoration:none;font-weight:600;cursor:pointer;}
+
+  /* CARRINHO */
+  .item-carrinho{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--cinza-borda);gap:10px;
+  }
+  .item-carrinho .info-item{flex:1;}
+  .item-carrinho .nome-item{font-weight:600;font-size:14px;}
+  .item-carrinho .preco-item{font-size:13px;color:var(--cinza-texto);}
+  .qtd-control{display:flex;align-items:center;gap:8px;}
+  .qtd-control button{
+    width:26px;height:26px;border-radius:6px;border:1px solid var(--cinza-borda);
+    background:#fff;cursor:pointer;font-weight:700;
+  }
+  .carrinho-total{
+    display:flex;justify-content:space-between;font-size:17px;font-weight:800;
+    padding-top:14px;margin-top:6px;
+  }
+
+  /* PAGAMENTO */
+  .metodo-pag{display:flex;gap:10px;margin-bottom:16px;}
+  .metodo-pag label{
+    flex:1;border:1.5px solid var(--cinza-borda);border-radius:8px;
+    padding:10px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .metodo-pag input{display:none;}
+  .metodo-pag input:checked + span{color:var(--vermelho);}
+  .metodo-pag label:has(input:checked){border-color:var(--vermelho);background:#fdeaea;}
+  .resumo-pedido{
+    background:var(--cinza-fundo);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13.5px;
+  }
+  .resumo-pedido .linha{display:flex;justify-content:space-between;padding:4px 0;}
+  .resumo-pedido .linha.total{font-weight:800;font-size:16px;border-top:1px solid var(--cinza-borda);margin-top:6px;padding-top:10px;}
+
+  /* PEDIDOS */
+  .pedido-card{
+    background:#fff;border:1px solid var(--cinza-borda);border-radius:10px;
+    padding:16px;margin-bottom:12px;
+  }
+  .pedido-cabecalho{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  .pedido-cabecalho .id{font-weight:700;}
+  .pedido-cabecalho .data{font-size:12.5px;color:var(--cinza-texto);}
+  .status-tag{
+    padding:4px 10px;border-radius:20px;font-size:11.5px;font-weight:700;
+    background:#e8f6ee;color:var(--verde);
+  }
+  .status-tag.status-cancelado{
+    background:#fdeaea;color:var(--vermelho-escuro);
+  }
+  .status-tag.status-pendente{
+    background:#fff4e0;color:#b8860b;
+  }
+  .pedido-corpo{margin-top:10px;font-size:13.5px;color:var(--cinza-texto);}
+
+  /* LOGIN ADMIN / ÁREA ADMIN */
+  .login-box{
+    max-width:380px;margin:60px auto;background:#fff;border:1px solid var(--cinza-borda);
+    border-radius:14px;padding:32px;text-align:center;box-shadow:var(--sombra);
+  }
+  .login-box .icone{font-size:36px;margin-bottom:10px;}
+  .login-box h2{margin-bottom:4px;}
+  .login-box .sub{font-size:13px;color:var(--cinza-texto);margin-bottom:20px;}
+
+  .admin-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+  .admin-abas{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .admin-abas button{
+    background:#ececee;border:none;padding:9px 16px;border-radius:8px;
+    font-size:13.5px;font-weight:600;cursor:pointer;color:var(--preto);
+  }
+  .admin-abas button.ativo{background:var(--vermelho);color:#fff;}
+
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:var(--sombra);}
+  thead{background:#faf5f5;}
+  th,td{padding:12px 14px;text-align:left;font-size:13.5px;border-bottom:1px solid var(--cinza-borda);}
+  th{font-weight:700;color:var(--cinza-texto);font-size:12.5px;text-transform:uppercase;letter-spacing:.03em;}
+  tr:last-child td{border-bottom:none;}
+  .acoes-tabela{display:flex;gap:6px;}
+  .tabela-wrap{overflow-x:auto;}
+  .restrito{text-align:center;padding:50px 20px;color:var(--cinza-texto);}
+  .restrito .emoji{font-size:38px;margin-bottom:10px;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--preto);color:#fff;padding:13px 22px;border-radius:10px;
+    font-size:14px;font-weight:600;z-index:400;opacity:0;pointer-events:none;
+    transition:all .25s;display:flex;align-items:center;gap:8px;
+  }
+  .toast.mostrar{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media(max-width:640px){
+    .linha2{grid-template-columns:1fr;}
+    .conta-area .ola{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-inner">
+    <div class="logo">Comércio Do Luiz💨</div>
+    <div class="conta-area">
+      <span class="selo-catalogo" id="seloCatalogo" style="display:none;"></span>
+      <span id="areaConta" style="display:flex;align-items:center;gap:10px;"></span>
+    </div>
+  </div>
+  <nav class="abas">
+    <button class="aba-btn ativo" data-aba="loja">🛍️ Loja</button>
+    <button class="aba-btn" data-aba="pedidos">📋 Meus Pedidos</button>
+    <button class="aba-btn" data-aba="admin">⚙️ Administração</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ABA LOJA -->
+  <section class="secao ativa" id="secao-loja">
+    <div class="loja-topo">
+      <h1>Produtos</h1>
+    </div>
+    <div class="filtros-catalogo" id="filtrosCatalogo"></div>
+    <div class="grid-produtos" id="gridProdutos"></div>
+  </section>
+
+  <!-- ABA PEDIDOS -->
+  <section class="secao" id="secao-pedidos">
+    <h1 style="margin-bottom:16px;">Meus Pedidos</h1>
+    <div id="listaPedidos"></div>
+  </section>
+
+  <!-- ABA ADMIN -->
+  <section class="secao" id="secao-admin">
+    <div id="adminConteudo"></div>
+  </section>
+
+</main>
+
+<button class="carrinho-fab" id="btnCarrinho" onclick="abrirCarrinho()">
+  🛒 Carrinho <span class="badge" id="badgeCarrinho">0</span>
+</button>
+
+<!-- MODAL LOGIN CLIENTE -->
+<div class="overlay" id="overlayLogin">
+  <div class="modal">
+    <button class="fechar-modal" onclick="fecharModal('overlayLogin')">✕</button>
+    <h2>Entrar</h2>
+    <div class="sub">Acesse sua conta para ver seus pedidos</div>
+    <div class="erro-msg" id="erroLogin"></div>
+    <div class="campo">
+      <label>E-mail</label>
+      <input type="email" id="loginEmail" placeholder="seu@email.com">
+    </div>
+    <div class="campo">
+      <label>Senha</label>
+      <input type="password" id="loginSenha" placeholder="Sua senha">
+    </div>
+    <button class="btn btn-primario btn-full" onclick="fazerLoginCliente()">Entrar</button>
+    <div class="troca-link">Não tem conta? <a onclick="trocarParaCadastro()">Criar conta</a></div>
+  </div>
+</div>
+
+<!-- MODAL CRIAR CONTA -->
+<div class="overlay" id="overlayCadastro">
+  <div class="modal">
+    <button class="fechar-modal" onclick="fecharModal('overlayCadastro')">✕</button>
+    <h2>Criar conta</h2>
+    <div class="sub">Cadastre-se para acompanhar seus pedidos</div>
+    <div class="erro-msg" id="erroCadastro"></div>
+    <div class="campo">
+      <label>Nome completo</label>
+      <input type="text" id="cadNome" placeholder="Seu nome">
+    </div>
+    <div class="campo">
+      <label>E-mail</label>
+      <input type="email" id="cadEmail" placeholder="seu@email.com">
+    </div>
+    <div class="campo">
+      <label>Senha</label>
+      <input type="password" id="cadSenha" placeholder="Crie uma senha (mín. 4 caracteres)">
+    </div>
+    <button class="btn btn-primario btn-full" onclick="criarConta()">Criar conta</button>
+    <div class="troca-link">Já tem conta? <a onclick="trocarParaLogin()">Entrar</a></div>
+  </div>
+</div>
+
+<!-- MODAL CARRINHO -->
+<div class="overlay" id="overlayCarrinho">
+  <div class="modal">
+    <button class="fechar-modal" onclick="fecharModal('overlayCarrinho')">✕</button>
+    <h2>Seu carrinho</h2>
+    <div class="sub">Revise os itens antes de finalizar</div>
+    <div id="itensCarrinhoModal"></div>
+    <div id="carrinhoVazioMsg" class="vazio" style="display:none;padding:30px 10px;">
+      <div class="emoji">🛒</div>
+      Seu carrinho está vazio
+    </div>
+    <div class="carrinho-total" id="totalCarrinho"></div>
+    <button class="btn btn-primario btn-full" style="margin-top:14px;" onclick="irParaPagamento()" id="btnFinalizarCompra">
+      Finalizar compra
+    </button>
+  </div>
+</div>
+
+<!-- MODAL PAGAMENTO -->
+<div class="overlay" id="overlayPagamento">
+  <div class="modal modal-lg">
+    <button class="fechar-modal" onclick="fecharModal('overlayPagamento')">✕</button>
+    <h2>Pagamento</h2>
+    <div class="sub">Finalize seu pedido com segurança</div>
+
+    <div class="resumo-pedido" id="resumoPedidoPagamento"></div>
+
+    <div class="campo">
+      <label>Nome do cliente</label>
+      <input type="text" id="pagNome" placeholder="Nome completo">
+    </div>
+    <div class="campo">
+      <label>E-mail</label>
+      <input type="email" id="pagEmail" placeholder="seu@email.com">
+    </div>
+    <div class="campo">
+      <label>Como deseja receber?</label>
+      <div class="metodo-pag">
+        <label><input type="radio" name="tipoRecebimento" value="entrega" checked onchange="atualizarTipoRecebimento()"><span>🚚 Entrega</span></label>
+        <label><input type="radio" name="tipoRecebimento" value="retirada" onchange="atualizarTipoRecebimento()"><span>🏬 Retirada no local</span></label>
+      </div>
+    </div>
+    <div class="campo" id="campoCepWrap">
+      <label>CEP de entrega</label>
+      <input type="text" id="pagCep" placeholder="00000-000" maxlength="9" oninput="mascaraCep(this)">
+    </div>
+    <div id="avisoRetirada" style="display:none;font-size:13px;color:var(--cinza-texto);background:var(--cinza-fundo);padding:12px 14px;border-radius:8px;margin-bottom:14px;">
+      🏬 Você escolheu retirar o pedido no local. Vamos avisar quando estiver pronto!
+    </div>
+
+    <div class="metodo-pag">
+      <label><input type="radio" name="metodo" value="pix" checked onchange="atualizarMetodoPag()"><span>💠 Pix</span></label>
+      <label><input type="radio" name="metodo" value="cartao" onchange="atualizarMetodoPag()"><span>💳 Cartão</span></label>
+      <label><input type="radio" name="metodo" value="dinheiro" onchange="atualizarMetodoPag()"><span>💵 Dinheiro</span></label>
+    </div>
+
+    <div id="camposCartao">
+      <div class="campo">
+        <label>Número do cartão</label>
+        <input type="text" id="cartaoNumero" placeholder="0000 0000 0000 0000" maxlength="19">
+      </div>
+      <div class="linha2">
+        <div class="campo">
+          <label>Validade</label>
+          <input type="text" id="cartaoValidade" placeholder="MM/AA" maxlength="5">
+        </div>
+        <div class="campo">
+          <label>CVV</label>
+          <input type="text" id="cartaoCvv" placeholder="123" maxlength="4">
+        </div>
+      </div>
+    </div>
+    <div id="campoPix" style="display:none;font-size:13px;color:var(--cinza-texto);background:var(--cinza-fundo);padding:14px;border-radius:8px;margin-bottom:14px;">
+      <div style="font-weight:700;color:var(--preto);margin-bottom:6px;">💠 Pague com Pix</div>
+      <div style="margin-bottom:2px;">Copie a chave Pix abaixo e pague no app do seu banco:</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+        <input type="text" id="chavePixInput" readonly value="" style="flex:1;padding:9px 10px;border:1.5px solid var(--cinza-borda);border-radius:8px;font-size:13.5px;background:#fff;font-weight:600;color:var(--preto);">
+        <button type="button" class="btn btn-secundario btn-sm" onclick="copiarChavePix()">📋 Copiar</button>
+      </div>
+      <div style="margin-top:8px;">Titular: <b style="color:var(--preto);" id="titularPixTexto"></b></div>
+      <div style="margin-top:6px;font-size:12px;">Após o pagamento, clique em "Confirmar pagamento" abaixo.</div>
+    </div>
+    <div id="campoDinheiro" style="display:none;font-size:13px;color:var(--cinza-texto);background:var(--cinza-fundo);padding:14px;border-radius:8px;margin-bottom:14px;">
+      <div style="font-weight:700;color:var(--preto);margin-bottom:6px;">💵 Pagamento em dinheiro</div>
+      <div>O pagamento será feito em dinheiro na entrega ou na retirada do pedido. Tenha o valor exato, se possível, para agilizar o troco.</div>
+    </div>
+
+    <div class="erro-msg" id="erroPagamento"></div>
+    <button class="btn btn-primario btn-full" onclick="confirmarPagamento()">Confirmar pagamento</button>
+  </div>
+</div>
+
+<!-- MODAL LOGIN ADMIN (dentro da aba admin, não é overlay) -->
+
+<!-- MODAL PRODUTO (admin) -->
+<div class="overlay" id="overlayProduto">
+  <div class="modal">
+    <button class="fechar-modal" onclick="fecharModal('overlayProduto')">✕</button>
+    <h2 id="tituloModalProduto">Novo produto</h2>
+    <div class="sub">Preencha os dados do produto</div>
+    <div class="erro-msg" id="erroProduto"></div>
+    <input type="hidden" id="produtoId">
+    <div class="campo">
+      <label>Nome do produto</label>
+      <input type="text" id="produtoNome" placeholder="Ex: Tênis Esportivo">
+    </div>
+    <div class="campo">
+      <label>Descrição</label>
+      <textarea id="produtoDesc" rows="2" placeholder="Breve descrição do produto"></textarea>
+    </div>
+    <div class="campo">
+      <label>Observação <span style="font-weight:400;color:var(--cinza-texto);">(aparece em "Ver detalhes")</span></label>
+      <textarea id="produtoDetalhes" rows="5"
+        placeholder="Texto completo sobre o produto. Pode usar vários parágrafos — as quebras de linha são mantidas."></textarea>
+    </div>
+    <div class="linha2">
+      <div class="campo">
+        <label>Preço (R$)</label>
+        <input type="number" id="produtoPreco" step="0.01" min="0" placeholder="0,00">
+      </div>
+      <div class="campo">
+        <label>Estoque</label>
+        <input type="number" id="produtoEstoque" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="campo">
+      <label>Foto do produto</label>
+      <div class="foto-campo">
+        <div class="foto-preview" id="fotoPreview">Sem foto</div>
+        <div class="foto-acoes">
+          <label class="btn btn-secundario btn-sm" style="display:inline-block;">
+            📷 Escolher foto
+            <input type="file" id="produtoFoto" accept="image/*" style="display:none;" onchange="selecionarFoto(this)">
+          </label>
+          <button type="button" class="btn btn-perigo btn-sm" id="btnRemoverFoto" onclick="removerFotoSelecionada()" style="display:none;">Remover foto</button>
+          <div class="foto-dica">A imagem é reduzida automaticamente<br>para a loja carregar rápido.</div>
+        </div>
+      </div>
+    </div>
+    <div class="campo">
+      <label>Catálogos deste produto</label>
+      <div class="lista-catalogos" id="catalogosProduto"></div>
+    </div>
+    <div class="campo">
+      <label>Emoji (usado quando o produto não tem foto)</label>
+      <input type="text" id="produtoEmoji" placeholder="Ex: 👟" maxlength="4">
+    </div>
+    <button class="btn btn-primario btn-full" onclick="salvarProduto()">Salvar produto</button>
+  </div>
+</div>
+
+<!-- MODAL DETALHES DO PRODUTO -->
+<div class="overlay" id="overlayDetalhesProduto">
+  <div class="modal" style="max-width:640px;">
+    <button class="fechar-modal" onclick="fecharModal('overlayDetalhesProduto')">✕</button>
+    <div id="detalhesProdutoConteudo"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALHES PEDIDO -->
+<div class="overlay" id="overlayDetalhesPedido">
+  <div class="modal">
+    <button class="fechar-modal" onclick="fecharModal('overlayDetalhesPedido')">✕</button>
+    <h2>Detalhes do pedido</h2>
+    <div id="detalhesPedidoConteudo"></div>
+  </div>
+</div>
+
+<!-- MODAL CONFIRMACAO -->
+<div class="overlay" id="overlayConfirmacao">
+  <div class="modal" style="max-width:400px;">
+    <div style="font-size:34px;text-align:center;margin-bottom:8px;" id="iconeConfirmacao">⚠️</div>
+    <h2 id="tituloConfirmacao" style="text-align:center;">Confirmar ação</h2>
+    <div class="sub" id="textoConfirmacao" style="text-align:center;"></div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-secundario btn-full" onclick="fecharConfirmacao()">Voltar</button>
+      <button class="btn btn-primario btn-full" id="btnConfirmarAcao">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PEDIDO REGISTRADO / WHATSAPP -->
+<div class="overlay" id="overlayPedidoOk">
+  <div class="modal" style="max-width:430px;">
+    <button class="fechar-modal" onclick="fecharModal('overlayPedidoOk')">✕</button>
+    <div style="font-size:42px;text-align:center;margin-bottom:6px;">✅</div>
+    <h2 style="text-align:center;">Pedido registrado!</h2>
+    <div class="sub" id="numeroPedidoOk" style="text-align:center;"></div>
+    <a id="linkWhatsapp" href="#" target="_blank" rel="noopener"
+       style="background:#25D366;color:#fff;display:block;text-align:center;text-decoration:none;
+              padding:13px;border-radius:8px;font-weight:700;font-size:15px;">
+      📲 Enviar pedido no WhatsApp
+    </a>
+    <div style="font-size:12.5px;color:var(--cinza-texto);line-height:1.5;margin-top:12px;text-align:center;">
+      É assim que a loja recebe seu pedido na hora.<br>
+      Se o WhatsApp não abrir sozinho, copie a mensagem e mande para
+      <b style="color:var(--preto);">(45) 99132-1583</b>.
+    </div>
+    <button class="btn btn-secundario btn-full" style="margin-top:10px;" onclick="copiarMensagemPedido()">📋 Copiar mensagem</button>
+  </div>
+</div>
+
+<!-- MODAL CATÁLOGO (admin) -->
+<div class="overlay" id="overlayCatalogo">
+  <div class="modal" style="max-width:400px;">
+    <button class="fechar-modal" onclick="fecharModal('overlayCatalogo')">✕</button>
+    <h2 id="tituloModalCatalogo">Novo catálogo</h2>
+    <div class="sub">Catálogos agrupam produtos na loja — por exemplo Eletrônicos, Promoções, Usados</div>
+    <div class="erro-msg" id="erroCatalogo"></div>
+    <input type="hidden" id="catalogoId">
+    <div class="campo">
+      <label>Nome do catálogo</label>
+      <input type="text" id="catalogoNome" placeholder="Ex: Eletrônicos" maxlength="40"
+             onkeydown="if(event.key==='Enter') salvarCatalogo()">
+    </div>
+    <button class="btn btn-primario btn-full" onclick="salvarCatalogo()">Salvar catálogo</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+
+<script type="application/json" id="dadosLoja">{"produtos":[{"id":1790188511378,"nome":"celular","descricao":"","preco":1500,"estoque":99,"emoji":"📦","imagem":"","imagemId":"","catalogos":[]},{"id":1790188539090,"nome":"coisas","descricao":"","preco":13,"estoque":22,"emoji":"📦","imagem":"","imagemId":"","catalogos":[]},{"id":1790188562412,"nome":"PC","descricao":"","preco":7499.99,"estoque":51,"emoji":"📦","imagem":"","imagemId":"","catalogos":[]}],"catalogos":[],"publicadoEm":"2026-09-23T18:52:04.169Z"}</script>
+
+<script>
+/* Retrato da página exatamente como ela foi publicada, tirado ANTES de
+   qualquer renderização. É esta cópia limpa que republicamos quando o
+   catálogo muda — nunca a página já mexida na tela. */
+const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElement.outerHTML;
+/* ==================== CONFIG ==================== */
+const SENHA_ADMIN = "admin123";
+const CHAVE_PIX = "123.123.123-70";
+const TITULAR_PIX = "João Eduardo Pompeo Neves";
+
+/* ==================== ESTADO / PERSISTÊNCIA ==================== */
+function carregar(chave, padrao){
+  try{
+    const v = localStorage.getItem(chave);
+    return v ? JSON.parse(v) : padrao;
+  }catch(e){ return padrao; }
+}
+function salvar(chave, valor){
+  try{
+    localStorage.setItem(chave, JSON.stringify(valor));
+  }catch(e){
+    console.warn('[armazenamento local]', e);
+    mostrarToast('A memória deste navegador encheu (fotos ocupam espaço).');
+  }
+}
+
+/* O catálogo publicado na página manda em tudo: é ele que todo mundo enxerga.
+   A cópia local só serve de reserva quando a página ainda não tem catálogo. */
+function lerCatalogoPublicado(){
+  try{
+    const el = document.getElementById('dadosLoja');
+    if(!el) return null;
+    const dados = JSON.parse(el.textContent || '{}');
+    return (Array.isArray(dados.produtos) && dados.produtos.length) ? dados.produtos : null;
+  }catch(e){ return null; }
+}
+
+function lerCatalogosPublicados(){
+  try{
+    const el = document.getElementById('dadosLoja');
+    if(!el) return null;
+    const dados = JSON.parse(el.textContent || '{}');
+    return Array.isArray(dados.catalogos) ? dados.catalogos : null;
+  }catch(e){ return null; }
+}
+
+let produtos = lerCatalogoPublicado() || carregar('lv_produtos', null);
+if(!produtos){
+  produtos = [
+    {id:1, nome:"Tênis Esportivo", descricao:"Confortável para o dia a dia", preco:249.90, estoque:12, emoji:"👟"},
+    {id:2, nome:"Mochila Urbana", descricao:"Resistente e com vários bolsos", preco:159.90, estoque:8, emoji:"🎒"},
+    {id:3, nome:"Fone Bluetooth", descricao:"Som de alta qualidade sem fio", preco:129.90, estoque:0, emoji:"🎧"},
+    {id:4, nome:"Relógio Digital", descricao:"À prova d'água, vários modos", preco:89.90, estoque:20, emoji:"⌚"},
+  ];
+}
+salvar('lv_produtos', produtos);
+
+/* Catálogos são as seções da loja; cada produto guarda em quais ele aparece. */
+let catalogos = lerCatalogosPublicados() || carregar('lv_catalogos', []) || [];
+salvar('lv_catalogos', catalogos);
+let catalogoAtivo = 'todos';
+
+let pedidos = carregar('lv_pedidos', []);
+let historicoCancelamentos = carregar('lv_historico_cancelamentos', []);
+let contas = carregar('lv_contas', []);
+let carrinho = carregar('lv_carrinho', []);
+
+let clienteLogado = carregar('lv_sessao_cliente', null); // {id,nome,email}
+let adminLogado = carregar('lv_sessao_admin', false);
+
+let abaAdminAtiva = 'produtos';
+let modoModal = 'login'; // login ou cadastro (aba admin embutida)
+
+/* ==================== UTILS ==================== */
+function gerarId(){ return Date.now() + Math.floor(Math.random()*1000); }
+function formatarPreco(v){ return "R$ " + Number(v).toFixed(2).replace('.', ','); }
+function mostrarToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('mostrar');
+  setTimeout(()=> t.classList.remove('mostrar'), 2600);
+}
+function abrirModal(id){ document.getElementById(id).classList.add('aberto'); }
+
+/* ---- Confirmacao propria (confirm() nativo e bloqueado dentro do artefato) ---- */
+let acaoConfirmacaoPendente = null;
+function pedirConfirmacao(titulo, texto, acao, rotuloBotao, icone){
+  document.getElementById('tituloConfirmacao').textContent = titulo;
+  document.getElementById('textoConfirmacao').textContent = texto;
+  document.getElementById('iconeConfirmacao').textContent = icone || '⚠️';
+  document.getElementById('btnConfirmarAcao').textContent = rotuloBotao || 'Confirmar';
+  acaoConfirmacaoPendente = acao;
+  abrirModal('overlayConfirmacao');
+}
+function fecharConfirmacao(){
+  acaoConfirmacaoPendente = null;
+  document.getElementById('overlayConfirmacao').classList.remove('aberto');
+}
+document.getElementById('btnConfirmarAcao').addEventListener('click', function(){
+  const acao = acaoConfirmacaoPendente;
+  fecharConfirmacao();
+  if(typeof acao === 'function') acao();
+});
+
+/* Atualiza todas as telas de uma vez, sem quebrar se alguma ainda nao existe */
+function atualizarTelas(){
+  renderizarLoja();
+  renderizarPedidos();
+  renderizarSubAbaAdmin();
+}
+function fecharModal(id){ document.getElementById(id).classList.remove('aberto'); limparErros(); }
+function limparErros(){
+  document.querySelectorAll('.erro-msg').forEach(e=>{e.classList.remove('mostrar'); e.textContent='';});
+}
+function mostrarErro(id, msg){
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('mostrar');
+}
+
+/* ==================== NAVEGAÇÃO DE ABAS ==================== */
+document.querySelectorAll('.aba-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.aba-btn').forEach(b=>b.classList.remove('ativo'));
+    document.querySelectorAll('.secao').forEach(s=>s.classList.remove('ativa'));
+    btn.classList.add('ativo');
+    document.getElementById('secao-' + btn.dataset.aba).classList.add('ativa');
+    if(btn.dataset.aba === 'pedidos') renderizarPedidos();
+    if(btn.dataset.aba === 'admin') renderizarAdmin();
+  });
+});
+
+/* ==================== ÁREA DE CONTA (topo) ==================== */
+function renderizarAreaConta(){
+  const area = document.getElementById('areaConta');
+  if(clienteLogado){
+    area.innerHTML = `
+      <span class="ola">Olá, <b>${escapeHtml(clienteLogado.nome.split(' ')[0])}</b></span>
+      <button class="btn btn-outline btn-sm" onclick="sairCliente()">Sair</button>
+    `;
+  }else{
+    area.innerHTML = `
+      <button class="btn btn-primario" onclick="abrirLoginCliente()">Entrar</button>
+      <button class="btn btn-secundario" onclick="abrirCadastroCliente()">Criar conta</button>
+    `;
+  }
+}
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function abrirLoginCliente(){ limparErros(); abrirModal('overlayLogin'); }
+function abrirCadastroCliente(){ limparErros(); abrirModal('overlayCadastro'); }
+function trocarParaCadastro(){ fecharModal('overlayLogin'); abrirCadastroCliente(); }
+function trocarParaLogin(){ fecharModal('overlayCadastro'); abrirLoginCliente(); }
+
+function fazerLoginCliente(){
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const senha = document.getElementById('loginSenha').value;
+  if(!email || !senha){
+    mostrarErro('erroLogin', 'Preencha e-mail e senha.');
+    return;
+  }
+  const conta = contas.find(c => c.email.toLowerCase() === email && c.senha === senha);
+  if(!conta){
+    mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
+    return;
+  }
+  clienteLogado = {id: conta.id, nome: conta.nome, email: conta.email};
+  salvar('lv_sessao_cliente', clienteLogado);
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginSenha').value = '';
+  fecharModal('overlayLogin');
+  renderizarAreaConta();
+  mostrarToast('Login realizado com sucesso! 👋');
+}
+
+function criarConta(){
+  const nome = document.getElementById('cadNome').value.trim();
+  const email = document.getElementById('cadEmail').value.trim().toLowerCase();
+  const senha = document.getElementById('cadSenha').value;
+  if(!nome || !email || !senha){
+    mostrarErro('erroCadastro', 'Preencha todos os campos.');
+    return;
+  }
+  if(senha.length < 4){
+    mostrarErro('erroCadastro', 'A senha deve ter no mínimo 4 caracteres.');
+    return;
+  }
+  if(contas.some(c => c.email.toLowerCase() === email)){
+    mostrarErro('erroCadastro', 'Já existe uma conta com este e-mail.');
+    return;
+  }
+  const novaConta = {
+    id: gerarId(),
+    nome, email, senha,
+    dataCadastro: new Date().toISOString()
+  };
+  contas.push(novaConta);
+  salvar('lv_contas', contas);
+
+  clienteLogado = {id: novaConta.id, nome: novaConta.nome, email: novaConta.email};
+  salvar('lv_sessao_cliente', clienteLogado);
+
+  document.getElementById('cadNome').value = '';
+  document.getElementById('cadEmail').value = '';
+  document.getElementById('cadSenha').value = '';
+  fecharModal('overlayCadastro');
+  renderizarAreaConta();
+  mostrarToast('Conta criada com sucesso! 🎉');
+  if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
+}
+
+function sairCliente(){
+  clienteLogado = null;
+  localStorage.removeItem('lv_sessao_cliente');
+  renderizarAreaConta();
+  renderizarPedidos();
+  mostrarToast('Você saiu da sua conta.');
+}
+
+
+/* ==================== CATÁLOGO PÚBLICO ====================
+   Salvar um produto reescreve a própria página publicada com o catálogo
+   novo dentro dela. Assim qualquer pessoa que abrir o link — em qualquer
+   aparelho — vê os mesmos produtos. Só quem pode editar a página publica;
+   para os clientes a loja é somente leitura. */
+let publicadorPagina = null;
+let publicandoAgora = false;
+let publicacaoPendente = false;
+const LIMITE_PAGINA = 14 * 1024 * 1024;
+
+/* Preferimos o código-fonte como o servidor o entrega: assim nada que a
+   plataforma injete na tela acaba gravado dentro da página republicada.
+   Só se a busca falhar usamos o retrato do DOM. */
+let fontePagina = PAGINA_PUBLICADA;
+async function buscarFonteDaPagina(){
+  try{
+    const resposta = await fetch(window.location.href, {cache:'no-store'});
+    if(!resposta.ok) return;
+    const texto = await resposta.text();
+    if(/<script[^>]*id="dadosLoja"[^>]*>/.test(texto)) fontePagina = texto;
+  }catch(e){ console.warn('[publicacao] usando o retrato do DOM', e); }
+}
+
+/* A mesma página roda em dois lugares: dentro da Claude (onde ela se
+   republica sozinha) e num site comum, tipo GitHub Pages (onde o catálogo
+   vem do arquivo catalogo.json, ao lado do index.html). */
+function estaNaClaude(){
+  return typeof window.claude !== 'undefined' && !!window.claude.use;
+}
+
+async function carregarCatalogoDoArquivo(){
+  if(estaNaClaude() || configuracaoBanco()) return;
+  try{
+    const resposta = await fetch('catalogo.json', {cache:'no-store'});
+    if(!resposta.ok) return;
+    const dados = await resposta.json();
+    if(Array.isArray(dados.catalogos)){
+      catalogos = dados.catalogos;
+      salvar('lv_catalogos', catalogos);
+    }
+    if(Array.isArray(dados.produtos) && dados.produtos.length){
+      produtos = dados.produtos;
+      salvar('lv_produtos', produtos);
+    }
+    renderizarLoja();
+    renderizarSubAbaAdmin();
+  }catch(e){ console.warn('[catálogo] sem catalogo.json, usando o embutido', e); }
+}
+
+function exportarCatalogo(){
+  const json = JSON.stringify({produtos, catalogos, atualizadoEm:new Date().toISOString()}, null, 2);
+  const url = URL.createObjectURL(new Blob([json], {type:'application/json'}));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'catalogo.json';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  mostrarToast('catalogo.json baixado! Substitua o arquivo no GitHub.');
+}
+
+async function conectarPublicador(){
+  if(typeof window.claude !== 'undefined' && window.claude.use){
+    try{ publicadorPagina = await window.claude.use('artifact'); }
+    catch(e){ publicadorPagina = null; }
+  }
+  if(publicadorPagina) await buscarFonteDaPagina();
+  const selo = document.getElementById('seloCatalogo');
+  if(!selo) return;
+  selo.style.display = 'inline-block';
+  if(publicadorPagina){
+    selo.textContent = '🌐 catálogo público';
+    selo.className = 'selo-catalogo ok';
+  }else if(!estaNaClaude()){
+    selo.textContent = '💾 dados neste navegador';
+    selo.className = 'selo-catalogo off';
+  }else{
+    selo.textContent = '💾 só neste navegador';
+    selo.className = 'selo-catalogo off';
+  }
+}
+
+/* A plataforma embrulha a página num cabeçalho próprio. Se republicássemos
+   o embrulho junto, ele se empilharia a cada salvamento, então cortamos fora
+   o que vem antes da abertura e depois do fechamento do nosso documento.
+   As marcas são montadas em pedaços de propósito: escritas por extenso, elas
+   apareceriam aqui no código e o corte aconteceria no lugar errado. */
+const MARCA_ABRE = '<!' + 'DOCTYPE html>';
+const MARCA_FECHA = '<' + '/html>';
+
+function limparEnvelope(texto){
+  const inicio = texto.indexOf(MARCA_ABRE);
+  if(inicio < 0) return texto;
+  const fim = texto.indexOf(MARCA_FECHA, inicio);
+  return fim < 0 ? texto.slice(inicio) : texto.slice(inicio, fim + MARCA_FECHA.length);
+}
+
+function montarPaginaComCatalogo(){
+  const marcador = /<script[^>]*id="dadosLoja"[^>]*>[\s\S]*?<\/script>/;
+  const fonte = limparEnvelope(fontePagina);
+  if(!marcador.test(fonte)) return null;
+  /* Confere que a fonte continua inteira: um corte errado já deixou a loja
+     publicada pela metade uma vez, e isso não pode voltar a acontecer. */
+  if(fonte.length < 30000 || fonte.indexOf('iniciar();') < 0) return null;
+  const json = JSON.stringify({produtos, catalogos, publicadoEm:new Date().toISOString()}).replace(/</g, '\\u003c');
+  return fonte.replace(marcador,
+    () => '<script type="application/json" id="dadosLoja">' + json + '<\/script>');
+}
+
+async function publicarCatalogo(){
+  /* Com o banco ligado, o catálogo vive no servidor: republicar a página
+     deixa de fazer sentido e só criaria uma segunda verdade. */
+  if(bancoAtivo) return;
+  if(!publicadorPagina){
+    mostrarToast('Produto salvo só neste navegador (não consegui publicar).');
+    return;
+  }
+  if(publicandoAgora){ publicacaoPendente = true; return; }
+  publicandoAgora = true;
+  try{
+    const html = montarPaginaComCatalogo();
+    if(!html){
+      mostrarToast('A página não pôde ser montada por inteiro. Nada foi publicado.');
+      return;
+    }
+    if(html.length > LIMITE_PAGINA){
+      mostrarToast('O catálogo ficou pesado demais. Apague fotos ou produtos antigos.');
+      return;
+    }
+    await publicadorPagina.publish(html);
+    mostrarToast('Catálogo publicado! Todo mundo já vê estes produtos. ✅');
+  }catch(e){
+    const codigo = e && e.code;
+    if(codigo === 'conflict') mostrarToast('Alguém publicou antes de você; a página vai recarregar.');
+    else if(codigo === 'not_writer' || codigo === 'not_granted') mostrarToast('Você não tem permissão para publicar o catálogo.');
+    else mostrarToast('Não consegui publicar o catálogo agora.');
+    console.warn('[publicacao]', e);
+  }finally{
+    publicandoAgora = false;
+    if(publicacaoPendente){ publicacaoPendente = false; publicarCatalogo(); }
+  }
+}
+
+/* ==================== FOTOS DOS PRODUTOS ====================
+   A foto escolhida é reduzida no próprio navegador antes de ser guardada.
+   Quando o artefato tem armazenamento de arquivos, ela sobe para lá e todo
+   mundo enxerga a mesma imagem; senão fica embutida no próprio produto. */
+const FOTO_LADO_MAX = 900;
+const FOTO_BYTES_ALVO = 170000;
+let armazemFotos = null;
+let fotoSelecionada = null;   // Blob já comprimido, esperando o "Salvar produto"
+let fotoRemovida = false;
+let urlPreviewAtual = null;
+
+async function conectarArmazemFotos(){
+  if(typeof window.claude === 'undefined' || !window.claude.use) return;
+  try{ armazemFotos = await window.claude.use('assets'); }
+  catch(e){ armazemFotos = null; }
+}
+
+function lerArquivoComoImagem(arquivo){
+  return new Promise((ok, erro) => {
+    const url = URL.createObjectURL(arquivo);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); erro(new Error('imagem inválida')); };
+    img.src = url;
+  });
+}
+
+function desenharEmEscala(img, lado){
+  const escala = Math.min(1, lado / Math.max(img.width, img.height));
+  const tela = document.createElement('canvas');
+  tela.width = Math.max(1, Math.round(img.width * escala));
+  tela.height = Math.max(1, Math.round(img.height * escala));
+  const ctx = tela.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, tela.width, tela.height);
+  ctx.drawImage(img, 0, 0, tela.width, tela.height);
+  return tela;
+}
+
+function telaParaBlob(tela, qualidade){
+  return new Promise(ok => {
+    if(tela.toBlob){ tela.toBlob(b => ok(b), 'image/jpeg', qualidade); return; }
+    try{
+      const partes = atob(tela.toDataURL('image/jpeg', qualidade).split(',')[1]);
+      const bytes = new Uint8Array(partes.length);
+      for(let i=0;i<partes.length;i++) bytes[i] = partes.charCodeAt(i);
+      ok(new Blob([bytes], {type:'image/jpeg'}));
+    }catch(e){ ok(null); }
+  });
+}
+
+async function comprimirImagem(arquivo){
+  const img = await lerArquivoComoImagem(arquivo);
+  let lado = FOTO_LADO_MAX, qualidade = 0.78, blob = null;
+  for(let tentativa = 0; tentativa < 6; tentativa++){
+    blob = await telaParaBlob(desenharEmEscala(img, lado), qualidade);
+    if(!blob) return null;
+    if(blob.size <= FOTO_BYTES_ALVO) break;
+    if(qualidade > 0.5) qualidade -= 0.12; else lado = Math.round(lado * 0.75);
+  }
+  return blob;
+}
+
+function blobParaDataUrl(blob){
+  return new Promise((ok, erro) => {
+    const leitor = new FileReader();
+    leitor.onload = () => ok(leitor.result);
+    leitor.onerror = () => erro(leitor.error);
+    leitor.readAsDataURL(blob);
+  });
+}
+
+/* Devolve {imagem, imagemId} para gravar no produto */
+async function guardarImagem(blob){
+  if(bancoAtivo){
+    try{
+      return {imagem: await enviarFotoParaBanco(blob), imagemId: ''};
+    }catch(e){
+      avisarErroBanco(e, 'enviar foto');
+      return null;
+    }
+  }
+  if(armazemFotos){
+    try{
+      const envio = await armazemFotos.upload(blob, {type:'image/jpeg'});
+      return {imagem:'', imagemId: envio.id};
+    }catch(e){
+      console.warn('[fotos] upload falhou, guardando na própria página', e);
+      if(e && e.code === 'too_large') mostrarToast('Essa foto ficou grande demais. Tente outra.');
+    }
+  }
+  return {imagem: await blobParaDataUrl(blob), imagemId: ''};
+}
+
+async function apagarImagemGuardada(idAsset){
+  if(!idAsset || !armazemFotos) return;
+  try{ await armazemFotos.delete(idAsset); }
+  catch(e){ console.warn('[fotos] não consegui apagar a imagem antiga', e); }
+}
+
+function fonteImagem(p){
+  if(p && p.imagemId) return '/_blob/' + p.imagemId;
+  if(p && p.imagem) return p.imagem;
+  return '';
+}
+function escaparAtributo(valor){
+  return String(valor).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+function blocoImagem(p){
+  const src = fonteImagem(p);
+  return src
+    ? `<img src="${escaparAtributo(src)}" alt="${escaparAtributo(p.nome)}">`
+    : (p.emoji || '📦');
+}
+function miniaturaProduto(p, classe){
+  const src = fonteImagem(p);
+  return src
+    ? `<img class="${classe}" src="${escaparAtributo(src)}" alt="${escaparAtributo(p.nome)}">`
+    : `<span style="font-size:20px;">${p.emoji || '📦'}</span>`;
+}
+
+async function selecionarFoto(input){
+  const arquivo = input.files && input.files[0];
+  input.value = '';
+  if(!arquivo) return;
+  if(arquivo.type && arquivo.type.indexOf('image/') !== 0){
+    mostrarToast('Escolha um arquivo de imagem.');
+    return;
+  }
+  mostrarToast('Preparando a foto…');
+  try{
+    const blob = await comprimirImagem(arquivo);
+    if(!blob) throw new Error('falha ao comprimir');
+    fotoSelecionada = blob;
+    fotoRemovida = false;
+    trocarPreviewFoto(URL.createObjectURL(blob), true);
+  }catch(e){
+    console.warn('[fotos]', e);
+    mostrarToast('Não consegui ler essa imagem. Tente outra.');
+  }
+}
+
+function removerFotoSelecionada(){
+  fotoSelecionada = null;
+  fotoRemovida = true;
+  trocarPreviewFoto('', false);
+}
+
+function trocarPreviewFoto(src, ehObjectUrl){
+  const caixa = document.getElementById('fotoPreview');
+  const botao = document.getElementById('btnRemoverFoto');
+  if(!caixa || !botao) return;
+  if(urlPreviewAtual){ URL.revokeObjectURL(urlPreviewAtual); urlPreviewAtual = null; }
+  if(src){
+    caixa.innerHTML = '';
+    const img = document.createElement('img');
+    img.alt = 'Pré-visualização do produto';
+    img.src = src;
+    caixa.appendChild(img);
+    botao.style.display = 'inline-block';
+    if(ehObjectUrl) urlPreviewAtual = src;
+  }else{
+    caixa.textContent = 'Sem foto';
+    botao.style.display = 'none';
+  }
+}
+
+function prepararCamposFoto(produto){
+  fotoSelecionada = null;
+  fotoRemovida = false;
+  trocarPreviewFoto(produto ? fonteImagem(produto) : '', false);
+}
+
+
+/* ==================== BANCO DE DADOS (Supabase) ====================
+   Com o banco configurado, ele passa a ser a fonte da verdade: produtos,
+   catálogos e pedidos moram no servidor. Quem pode alterar é decidido lá,
+   por regras do próprio banco — o navegador só pede, não manda. Sem
+   configuração, a loja segue funcionando do jeito antigo. */
+let bd = null;
+let bancoAtivo = false;
+
+function configuracaoBanco(){
+  const c = window.LOJA_CONFIG || {};
+  return (c.supabaseUrl && c.supabaseAnonKey) ? c : null;
+}
+
+function avisarErroBanco(erro, acao){
+  console.warn('[banco]', acao || '', erro);
+  const msg = (erro && (erro.message || erro.error_description)) || '';
+  if(/row-level security|permission|not authorized|JWT/i.test(msg)){
+    mostrarToast('Sua conta não tem permissão para essa alteração.');
+  }else{
+    mostrarToast('Não consegui falar com o servidor. Tente de novo.');
+  }
+}
+
+/* ---- conversão entre o formato da tela e o das tabelas ---- */
+function produtoDoBanco(r){
+  return {
+    id: Number(r.id), nome: r.nome, descricao: r.descricao || '',
+    preco: Number(r.preco), estoque: Number(r.estoque), emoji: r.emoji || '📦',
+    imagem: r.imagem_url || '', imagemId: '',
+    detalhes: r.detalhes || '',
+    catalogos: Array.isArray(r.catalogos) ? r.catalogos.map(Number) : []
+  };
+}
+function produtoParaBanco(p){
+  return {
+    id: p.id, nome: p.nome, descricao: p.descricao || '',
+    preco: p.preco, estoque: p.estoque, emoji: p.emoji || '📦',
+    imagem_url: p.imagem || '', catalogos: catalogosDoProduto(p).map(Number),
+    detalhes: p.detalhes || '',
+    atualizado_em: new Date().toISOString()
+  };
+}
+function pedidoDoBanco(r){
+  return {
+    id: Number(r.id), numero: r.numero, data: r.criado_em,
+    clienteNome: r.cliente_nome, clienteEmail: r.cliente_email,
+    clienteCep: r.cliente_cep || '', tipoRecebimento: r.tipo_recebimento,
+    clienteContaId: null, metodoPagamento: r.metodo_pagamento,
+    itens: Array.isArray(r.itens) ? r.itens : [],
+    total: Number(r.total), status: r.status
+  };
+}
+function pedidoParaBanco(ped){
+  return {
+    id: ped.id, numero: ped.numero, criado_em: ped.data,
+    cliente_nome: ped.clienteNome, cliente_email: ped.clienteEmail,
+    cliente_cep: ped.clienteCep || '', tipo_recebimento: ped.tipoRecebimento,
+    metodo_pagamento: ped.metodoPagamento, itens: ped.itens,
+    total: ped.total, status: ped.status
+  };
+}
+
+/* ---- leitura ---- */
+async function carregarDoBanco(){
+  if(!bancoAtivo) return;
+  try{
+    const [rc, rp] = await Promise.all([
+      bd.from('catalogos').select('*').order('nome'),
+      bd.from('produtos').select('*').order('nome')
+    ]);
+    if(rc.error) avisarErroBanco(rc.error, 'ler catálogos');
+    else if(rc.data){
+      catalogos = rc.data.map(c => ({id: Number(c.id), nome: c.nome}));
+      salvar('lv_catalogos', catalogos);
+    }
+    if(rp.error) avisarErroBanco(rp.error, 'ler produtos');
+    else if(rp.data){
+      produtos = rp.data.map(produtoDoBanco);
+      salvar('lv_produtos', produtos);
+    }
+  }catch(e){ avisarErroBanco(e, 'leitura'); }
+}
+
+async function carregarPedidosDoBanco(){
+  if(!bancoAtivo || !adminLogado) return;
+  try{
+    const { data, error } = await bd.from('pedidos')
+      .select('*').order('criado_em', {ascending:false}).limit(500);
+    if(error){ avisarErroBanco(error, 'ler pedidos'); return; }
+    pedidos = (data || []).map(pedidoDoBanco);
+    salvar('lv_pedidos', pedidos);
+  }catch(e){ avisarErroBanco(e, 'ler pedidos'); }
+}
+
+/* ---- escrita ---- */
+async function bdSalvarProduto(p){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('produtos').upsert(produtoParaBanco(p));
+  if(error) avisarErroBanco(error, 'salvar produto');
+}
+async function bdExcluirProduto(id){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('produtos').delete().eq('id', id);
+  if(error) avisarErroBanco(error, 'excluir produto');
+}
+async function bdSalvarCatalogo(c){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('catalogos').upsert({id: c.id, nome: c.nome});
+  if(error) avisarErroBanco(error, 'salvar catálogo');
+}
+async function bdExcluirCatalogo(id, produtosAfetados){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('catalogos').delete().eq('id', id);
+  if(error){ avisarErroBanco(error, 'excluir catálogo'); return; }
+  for(const p of produtosAfetados){ await bdSalvarProduto(p); }
+}
+async function bdSalvarPedido(ped){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('pedidos').upsert(pedidoParaBanco(ped));
+  if(error) avisarErroBanco(error, 'salvar pedido');
+}
+async function bdExcluirPedido(id){
+  if(!bancoAtivo) return;
+  const { error } = await bd.from('pedidos').delete().eq('id', id);
+  if(error) avisarErroBanco(error, 'excluir pedido');
+}
+async function enviarFotoParaBanco(blob){
+  const nome = 'produto-' + Date.now() + '-' + Math.floor(Math.random()*10000) + '.jpg';
+  const { error } = await bd.storage.from('fotos')
+    .upload(nome, blob, {contentType: 'image/jpeg', upsert: false});
+  if(error) throw error;
+  const { data } = bd.storage.from('fotos').getPublicUrl(nome);
+  return data.publicUrl;
+}
+
+/* ---- entrar e sair da administração ---- */
+async function confirmarSeEhAdmin(){
+  try{
+    const { data, error } = await bd.from('admins').select('user_id').limit(1);
+    if(error) return false;
+    return !!(data && data.length);
+  }catch(e){ return false; }
+}
+
+async function entrarComoAdmin(){
+  const email = document.getElementById('adminEmail').value.trim();
+  const senha = document.getElementById('adminSenha').value;
+  if(!email || !senha){
+    mostrarErro('erroAdmin', 'Preencha e-mail e senha.');
+    return;
+  }
+  const { error } = await bd.auth.signInWithPassword({email, password: senha});
+  if(error){
+    /* Cada falha tem uma causa diferente; dizer "senha errada" para todas
+       manda a pessoa procurar no lugar errado. */
+    const msg = (error.message || '');
+    if(/email not confirmed/i.test(msg)){
+      mostrarErro('erroAdmin', 'Esta conta ainda n\u00e3o foi confirmada. No Supabase, em Authentication > Users, confirme o usu\u00e1rio.');
+    }else if(/invalid login credentials/i.test(msg)){
+      mostrarErro('erroAdmin', 'E-mail ou senha incorretos.');
+    }else if(/invalid api key|jwt|apikey/i.test(msg)){
+      mostrarErro('erroAdmin', 'O servidor n\u00e3o aceitou a chave desta loja. Avise quem cuida do site.');
+    }else if(/failed to fetch|networkerror/i.test(msg)){
+      mostrarErro('erroAdmin', 'Sem conex\u00e3o com o servidor. Verifique a internet e tente de novo.');
+    }else{
+      mostrarErro('erroAdmin', 'N\u00e3o consegui entrar: ' + msg);
+    }
+    console.warn('[login]', error);
+    return;
+  }
+  if(!await confirmarSeEhAdmin()){
+    await bd.auth.signOut();
+    mostrarErro('erroAdmin', 'Esta conta existe, mas não é administradora da loja.');
+    return;
+  }
+  adminLogado = true;
+  salvar('lv_sessao_admin', true);
+  abaAdminAtiva = 'produtos';
+  await carregarPedidosDoBanco();
+  renderizarAdmin();
+  renderizarPedidos();
+  mostrarToast('Bem-vindo(a) à administração! 🔐');
+}
+
+async function conectarBanco(){
+  const cfg = configuracaoBanco();
+  if(!cfg) return;
+  /* Com banco configurado, ser administrador depende da sessão do servidor,
+     nunca do que estiver guardado neste navegador. */
+  adminLogado = false;
+  salvar('lv_sessao_admin', false);
+  try{
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    bd = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+    bancoAtivo = true;
+  }catch(e){
+    console.warn('[banco] não consegui carregar a biblioteca', e);
+    return;
+  }
+  try{
+    const { data } = await bd.auth.getSession();
+    if(data && data.session && await confirmarSeEhAdmin()){
+      adminLogado = true;
+      salvar('lv_sessao_admin', true);
+    }
+  }catch(e){ console.warn('[banco] sessão', e); }
+  await carregarDoBanco();
+  if(adminLogado) await carregarPedidosDoBanco();
+  atualizarSeloBanco();
+  atualizarTelas();
+  renderizarAdmin();
+}
+
+function atualizarSeloBanco(){
+  if(!bancoAtivo) return;
+  const selo = document.getElementById('seloCatalogo');
+  if(!selo) return;
+  selo.style.display = 'inline-block';
+  selo.textContent = '🔒 servidor conectado';
+  selo.className = 'selo-catalogo ok';
+}
+
+/* ==================== CATÁLOGOS ====================
+   Um catálogo é uma seção da loja. O produto guarda os ids dos catálogos
+   em que aparece, então um produto pode estar em mais de um. */
+function nomeCatalogo(id){
+  const c = catalogos.find(c => String(c.id) === String(id));
+  return c ? c.nome : '';
+}
+function catalogosDoProduto(p){
+  return Array.isArray(p.catalogos) ? p.catalogos : [];
+}
+function contarProdutosNoCatalogo(id){
+  return produtos.filter(p => catalogosDoProduto(p).some(c => String(c) === String(id))).length;
+}
+
+function abrirModalNovoCatalogo(){
+  document.getElementById('tituloModalCatalogo').textContent = 'Novo catálogo';
+  document.getElementById('catalogoId').value = '';
+  document.getElementById('catalogoNome').value = '';
+  limparErros();
+  abrirModal('overlayCatalogo');
+  setTimeout(() => document.getElementById('catalogoNome').focus(), 50);
+}
+
+function renomearCatalogo(id){
+  const c = catalogos.find(c => String(c.id) === String(id));
+  if(!c) return;
+  document.getElementById('tituloModalCatalogo').textContent = 'Renomear catálogo';
+  document.getElementById('catalogoId').value = c.id;
+  document.getElementById('catalogoNome').value = c.nome;
+  limparErros();
+  abrirModal('overlayCatalogo');
+  setTimeout(() => document.getElementById('catalogoNome').select(), 50);
+}
+
+function salvarCatalogo(){
+  const id = document.getElementById('catalogoId').value;
+  const nome = document.getElementById('catalogoNome').value.trim();
+  if(!nome){
+    mostrarErro('erroCatalogo', 'Dê um nome ao catálogo.');
+    return;
+  }
+  const repetido = catalogos.some(c =>
+    c.nome.toLowerCase() === nome.toLowerCase() && String(c.id) !== String(id));
+  if(repetido){
+    mostrarErro('erroCatalogo', 'Já existe um catálogo com esse nome.');
+    return;
+  }
+  let catalogoSalvo;
+  if(id){
+    catalogoSalvo = catalogos.find(c => String(c.id) === String(id));
+    if(!catalogoSalvo) return;
+    catalogoSalvo.nome = nome;
+    mostrarToast('Catálogo renomeado!');
+  }else{
+    catalogoSalvo = {id: gerarId(), nome};
+    catalogos.push(catalogoSalvo);
+    mostrarToast('Catálogo criado!');
+  }
+  salvar('lv_catalogos', catalogos);
+  bdSalvarCatalogo(catalogoSalvo);
+  fecharModal('overlayCatalogo');
+  atualizarTelas();
+  publicarCatalogo();
+}
+
+function excluirCatalogo(id){
+  const c = catalogos.find(c => String(c.id) === String(id));
+  if(!c) return;
+  const quantos = contarProdutosNoCatalogo(id);
+  pedirConfirmacao(
+    'Excluir catálogo',
+    `Excluir o catálogo "${c.nome}"? ` + (quantos
+      ? `Os ${quantos} produto(s) dele continuam na loja, apenas sem esse catálogo.`
+      : 'Nenhum produto usa esse catálogo.'),
+    function(){
+      catalogos = catalogos.filter(c => String(c.id) !== String(id));
+      const afetados = [];
+      produtos.forEach(p => {
+        if(Array.isArray(p.catalogos) && p.catalogos.some(x => String(x) === String(id))){
+          p.catalogos = p.catalogos.filter(x => String(x) !== String(id));
+          afetados.push(p);
+        }
+      });
+      bdExcluirCatalogo(id, afetados);
+      if(String(catalogoAtivo) === String(id)) catalogoAtivo = 'todos';
+      salvar('lv_catalogos', catalogos);
+      salvar('lv_produtos', produtos);
+      atualizarTelas();
+      mostrarToast('Catálogo excluído.');
+      publicarCatalogo();
+    },
+    'Sim, excluir',
+    '🗑️'
+  );
+}
+
+/* Caixinhas de seleção dentro do modal do produto */
+function montarEscolhaDeCatalogos(produto){
+  const caixa = document.getElementById('catalogosProduto');
+  if(!caixa) return;
+  if(catalogos.length === 0){
+    caixa.innerHTML = `<div class="aviso">Nenhum catálogo criado ainda.<br>
+      Crie um na aba <b>🏷️ Catálogos</b> para poder marcar aqui.</div>`;
+    return;
+  }
+  const marcados = produto ? catalogosDoProduto(produto).map(String) : [];
+  caixa.innerHTML = catalogos.map(c => `
+    <label>
+      <input type="checkbox" value="${escaparAtributo(c.id)}"
+        ${marcados.indexOf(String(c.id)) >= 0 ? 'checked' : ''}>
+      <span>${escapeHtml(c.nome)}</span>
+    </label>
+  `).join('');
+}
+
+function lerCatalogosMarcados(){
+  const caixa = document.getElementById('catalogosProduto');
+  if(!caixa) return [];
+  return Array.from(caixa.querySelectorAll('input[type="checkbox"]:checked'))
+    .map(el => el.value);
+}
+
+/* Barra de filtros da vitrine */
+function renderizarFiltrosCatalogo(){
+  const barra = document.getElementById('filtrosCatalogo');
+  if(!barra) return;
+  if(catalogos.length === 0){
+    barra.innerHTML = '';
+    return;
+  }
+  if(catalogoAtivo !== 'todos' && !catalogos.some(c => String(c.id) === String(catalogoAtivo))){
+    catalogoAtivo = 'todos';
+  }
+  const botoes = [`<button class="${catalogoAtivo === 'todos' ? 'ativo' : ''}"
+      onclick="filtrarPorCatalogo('todos')">Todos</button>`];
+  catalogos.forEach(c => {
+    botoes.push(`<button class="${String(catalogoAtivo) === String(c.id) ? 'ativo' : ''}"
+      onclick="filtrarPorCatalogo('${escaparAtributo(c.id)}')">${escapeHtml(c.nome)}</button>`);
+  });
+  barra.innerHTML = botoes.join('');
+}
+
+function filtrarPorCatalogo(id){
+  catalogoAtivo = id;
+  renderizarLoja();
+}
+
+/* ==================== DETALHES DO PRODUTO ====================
+   Um único texto livre por produto ("Observação"), mostrado numa janela.
+   Produtos cadastrados antes deste campo existir simplesmente vêm sem ele.
+
+   O botão só aparece quando há algo para mostrar — um "Ver detalhes" que
+   abre uma janela vazia irrita mais do que ajuda. */
+function temDetalhes(p){
+  return String(p.detalhes || '').trim() !== '';
+}
+
+function verDetalhesProduto(id){
+  const p = produtos.find(pr => String(pr.id) === String(id));
+  if(!p) return;
+  const texto = String(p.detalhes || '').trim();
+
+  let html = `
+    <div class="detalhes-produto-topo">
+      <div class="detalhes-produto-foto">${blocoImagem(p)}</div>
+      <div>
+        <div class="detalhes-produto-nome">${escapeHtml(p.nome)}</div>
+        <div class="detalhes-produto-preco">${formatarPreco(p.preco)}</div>
+      </div>
+    </div>`;
+
+  const descricao = String(p.descricao || '').trim();
+  if(descricao){
+    html += `
+      <div class="detalhes-secao">
+        <h3>Descrição</h3>
+        <div class="detalhes-produto">${escapeHtml(descricao)}</div>
+      </div>`;
+  }
+
+  if(texto){
+    html += `
+      <div class="detalhes-secao">
+        <h3>Observação</h3>
+        <div class="detalhes-produto">${escapeHtml(texto)}</div>
+      </div>`;
+  }
+
+  html += `
+    <button class="btn btn-detalhes btn-full"
+      style="margin-top:20px;${p.estoque === 0 ? 'opacity:.5;cursor:not-allowed;' : ''}"
+      ${p.estoque === 0 ? 'disabled' : ''}
+      onclick="comprarPelosDetalhes(${p.id})">
+      ${p.estoque === 0 ? 'Indisponível' : 'Comprar'}
+    </button>`;
+
+  document.getElementById('detalhesProdutoConteudo').innerHTML = html;
+  abrirModal('overlayDetalhesProduto');
+}
+
+function comprarPelosDetalhes(id){
+  adicionarAoCarrinho(id);
+  fecharModal('overlayDetalhesProduto');
+}
+
+function produtosVisiveis(){
+  if(catalogoAtivo === 'todos') return produtos;
+  return produtos.filter(p =>
+    catalogosDoProduto(p).some(c => String(c) === String(catalogoAtivo)));
+}
+
+/* ==================== LOJA / PRODUTOS ==================== */
+function renderizarLoja(){
+  const grid = document.getElementById('gridProdutos');
+  renderizarFiltrosCatalogo();
+  const lista = produtosVisiveis();
+  if(lista.length === 0){
+    const recado = produtos.length === 0
+      ? 'Nenhum produto cadastrado ainda.'
+      : 'Nenhum produto neste catálogo ainda.';
+    grid.innerHTML = `<div class="vazio" style="grid-column:1/-1;"><div class="emoji">📦</div>${recado}</div>`;
+    return;
+  }
+  grid.innerHTML = lista.map(p => {
+    const desc = p.descricao || '';
+    /* 130 caracteres é mais ou menos o que cabe em 3 linhas do card. Abaixo
+       disso o texto não seria cortado e o botão só poluiria. */
+    const descLonga = desc.length > 130;
+    let estoqueClasse = '';
+    let estoqueTxt = `${p.estoque} em estoque`;
+    if(p.estoque === 0){ estoqueClasse='zero'; estoqueTxt='Fora de estoque'; }
+    else if(p.estoque <= 3){ estoqueClasse='baixo'; estoqueTxt=`Últimas ${p.estoque} unidades`; }
+    return `
+      <div class="card-produto">
+        <div class="imagem">${blocoImagem(p)}</div>
+        <div class="info">
+          <div class="nome">${escapeHtml(p.nome)}</div>
+          <div class="desc${descLonga ? ' truncada' : ''}">${escapeHtml(desc)}</div>
+          ${descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
+          <div class="preco">${formatarPreco(p.preco)}</div>
+          <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
+          <div class="acoes">
+            <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
+              onclick="adicionarAoCarrinho(${p.id})">
+              ${p.estoque===0 ? 'Indisponível' : '🛒 Adicionar'}
+            </button>
+            ${temDetalhes(p) ? `<button class="btn btn-detalhes btn-full"
+              onclick="verDetalhesProduto(${p.id})">➜] Ver detalhes</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ==================== CARRINHO ==================== */
+function adicionarAoCarrinho(produtoId){
+  const produto = produtos.find(p => p.id === produtoId);
+  if(!produto || produto.estoque === 0) return;
+  const item = carrinho.find(i => i.produtoId === produtoId);
+  const qtdAtualCarrinho = item ? item.qtd : 0;
+  if(qtdAtualCarrinho + 1 > produto.estoque){
+    mostrarToast('Quantidade máxima em estoque atingida.');
+    return;
+  }
+  if(item){ item.qtd += 1; }
+  else{ carrinho.push({produtoId, qtd:1}); }
+  salvar('lv_carrinho', carrinho);
+  atualizarBadgeCarrinho();
+  mostrarToast(`${produto.nome} adicionado ao carrinho`);
+}
+
+function atualizarBadgeCarrinho(){
+  const total = carrinho.reduce((s,i)=>s+i.qtd,0);
+  document.getElementById('badgeCarrinho').textContent = total;
+}
+
+function abrirCarrinho(){
+  renderizarCarrinhoModal();
+  abrirModal('overlayCarrinho');
+}
+
+function renderizarCarrinhoModal(){
+  const cont = document.getElementById('itensCarrinhoModal');
+  const vazioMsg = document.getElementById('carrinhoVazioMsg');
+  const totalEl = document.getElementById('totalCarrinho');
+  const btnFinalizar = document.getElementById('btnFinalizarCompra');
+
+  if(carrinho.length === 0){
+    cont.innerHTML = '';
+    vazioMsg.style.display = 'block';
+    totalEl.innerHTML = '';
+    btnFinalizar.style.display = 'none';
+    return;
+  }
+  vazioMsg.style.display = 'none';
+  btnFinalizar.style.display = 'block';
+
+  let total = 0;
+  cont.innerHTML = carrinho.map(item => {
+    const produto = produtos.find(p => p.id === item.produtoId);
+    if(!produto) return '';
+    const subtotal = produto.preco * item.qtd;
+    total += subtotal;
+    return `
+      <div class="item-carrinho">
+        <div class="info-item">
+          <div class="nome-item" style="display:flex;align-items:center;gap:8px;">${miniaturaProduto(produto, 'mini-item')}<span>${escapeHtml(produto.nome)}</span></div>
+          <div class="preco-item">${formatarPreco(produto.preco)} un.</div>
+        </div>
+        <div class="qtd-control">
+          <button onclick="alterarQtdCarrinho(${produto.id}, -1)">−</button>
+          <span>${item.qtd}</span>
+          <button onclick="alterarQtdCarrinho(${produto.id}, 1)">+</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  totalEl.innerHTML = `<span>Total</span><span>${formatarPreco(total)}</span>`;
+}
+
+function alterarQtdCarrinho(produtoId, delta){
+  const item = carrinho.find(i => i.produtoId === produtoId);
+  const produto = produtos.find(p => p.id === produtoId);
+  if(!item || !produto) return;
+  const novaQtd = item.qtd + delta;
+  if(novaQtd <= 0){
+    carrinho = carrinho.filter(i => i.produtoId !== produtoId);
+  }else if(novaQtd > produto.estoque){
+    mostrarToast('Quantidade máxima em estoque atingida.');
+    return;
+  }else{
+    item.qtd = novaQtd;
+  }
+  salvar('lv_carrinho', carrinho);
+  atualizarBadgeCarrinho();
+  renderizarCarrinhoModal();
+}
+
+function calcularTotalCarrinho(){
+  return carrinho.reduce((soma, item) => {
+    const p = produtos.find(pr => pr.id === item.produtoId);
+    return soma + (p ? p.preco * item.qtd : 0);
+  }, 0);
+}
+
+/* ==================== PAGAMENTO / CHECKOUT ==================== */
+function irParaPagamento(){
+  if(carrinho.length === 0) return;
+  fecharModal('overlayCarrinho');
+
+  const resumo = document.getElementById('resumoPedidoPagamento');
+  let linhas = '';
+  carrinho.forEach(item => {
+    const p = produtos.find(pr => pr.id === item.produtoId);
+    if(!p) return;
+    linhas += `<div class="linha"><span>${item.qtd}x ${escapeHtml(p.nome)}</span><span>${formatarPreco(p.preco*item.qtd)}</span></div>`;
+  });
+  const total = calcularTotalCarrinho();
+  linhas += `<div class="linha total"><span>Total</span><span>${formatarPreco(total)}</span></div>`;
+  resumo.innerHTML = linhas;
+
+  if(clienteLogado){
+    document.getElementById('pagNome').value = clienteLogado.nome;
+    document.getElementById('pagEmail').value = clienteLogado.email;
+  }
+
+  abrirModal('overlayPagamento');
+}
+
+function atualizarMetodoPag(){
+  const metodo = document.querySelector('input[name="metodo"]:checked').value;
+  document.getElementById('camposCartao').style.display = metodo === 'cartao' ? 'block' : 'none';
+  document.getElementById('campoPix').style.display = metodo === 'pix' ? 'block' : 'none';
+  document.getElementById('campoDinheiro').style.display = metodo === 'dinheiro' ? 'block' : 'none';
+  if(metodo === 'pix'){
+    document.getElementById('chavePixInput').value = CHAVE_PIX;
+    document.getElementById('titularPixTexto').textContent = TITULAR_PIX;
+  }
+}
+function copiarChavePix(){
+  const campo = document.getElementById('chavePixInput');
+  campo.select();
+  campo.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(CHAVE_PIX).then(()=>{
+    mostrarToast('Chave Pix copiada! 📋');
+  }).catch(()=>{
+    document.execCommand('copy');
+    mostrarToast('Chave Pix copiada! 📋');
+  });
+}
+function mascaraCep(input){
+  let v = input.value.replace(/\D/g,'').slice(0,8);
+  if(v.length > 5) v = v.slice(0,5) + '-' + v.slice(5);
+  input.value = v;
+}
+function atualizarTipoRecebimento(){
+  const tipo = document.querySelector('input[name="tipoRecebimento"]:checked').value;
+  document.getElementById('campoCepWrap').style.display = tipo === 'entrega' ? 'block' : 'none';
+  document.getElementById('avisoRetirada').style.display = tipo === 'retirada' ? 'block' : 'none';
+}
+atualizarMetodoPag();
+
+function confirmarPagamento(){
+  const nome = document.getElementById('pagNome').value.trim();
+  const email = document.getElementById('pagEmail').value.trim();
+  const tipoRecebimento = document.querySelector('input[name="tipoRecebimento"]:checked').value;
+  const cep = tipoRecebimento === 'entrega' ? document.getElementById('pagCep').value.trim() : '';
+  const metodo = document.querySelector('input[name="metodo"]:checked').value;
+
+  if(!nome || !email){
+    mostrarErro('erroPagamento', 'Preencha nome e e-mail.');
+    return;
+  }
+  if(tipoRecebimento === 'entrega' && (!cep || cep.replace(/\D/g,'').length !== 8)){
+    mostrarErro('erroPagamento', 'Informe um CEP válido (8 dígitos).');
+    return;
+  }
+  if(metodo === 'cartao'){
+    const num = document.getElementById('cartaoNumero').value.trim();
+    const val = document.getElementById('cartaoValidade').value.trim();
+    const cvv = document.getElementById('cartaoCvv').value.trim();
+    if(!num || !val || !cvv){
+      mostrarErro('erroPagamento', 'Preencha os dados do cartão.');
+      return;
+    }
+  }
+
+  // valida estoque novamente
+  for(const item of carrinho){
+    const p = produtos.find(pr => pr.id === item.produtoId);
+    if(!p || item.qtd > p.estoque){
+      mostrarErro('erroPagamento', `Estoque insuficiente para ${p ? p.nome : 'um item'}.`);
+      return;
+    }
+  }
+
+  // baixa de estoque
+  const itensPedido = carrinho.map(item => {
+    const p = produtos.find(pr => pr.id === item.produtoId);
+    p.estoque -= item.qtd;
+    return {produtoId: p.id, nome: p.nome, qtd: item.qtd, preco: p.preco};
+  });
+  salvar('lv_produtos', produtos);
+
+  const total = itensPedido.reduce((s,i)=> s + i.preco*i.qtd, 0);
+
+  const novoPedido = {
+    id: gerarId(),
+    numero: 'PED-' + Math.floor(100000 + Math.random()*900000),
+    data: new Date().toISOString(),
+    clienteNome: nome,
+    clienteEmail: email,
+    clienteCep: cep,
+    tipoRecebimento,
+    clienteContaId: clienteLogado ? clienteLogado.id : null,
+    metodoPagamento: metodo,
+    itens: itensPedido,
+    total,
+    status: 'Pendente'
+  };
+  pedidos.push(novoPedido);
+  salvar('lv_pedidos', pedidos);
+  bdSalvarPedido(novoPedido);
+  itensPedido.forEach(i => {
+    const p = produtos.find(pr => pr.id === i.produtoId);
+    if(p) bdSalvarProduto(p);
+  });
+
+  // limpa carrinho
+  carrinho = [];
+  salvar('lv_carrinho', carrinho);
+  atualizarBadgeCarrinho();
+
+  fecharModal('overlayPagamento');
+  renderizarLoja();
+  abrirConfirmacaoPedido(novoPedido);
+
+  // limpa formulário de cartão
+  document.getElementById('cartaoNumero').value = '';
+  document.getElementById('cartaoValidade').value = '';
+  document.getElementById('cartaoCvv').value = '';
+  document.getElementById('pagCep').value = '';
+  document.querySelector('input[name="tipoRecebimento"][value="entrega"]').checked = true;
+  atualizarTipoRecebimento();
+}
+
+
+/* ==================== PEDIDO PELO WHATSAPP ====================
+   Sem servidor, o caminho do pedido até a loja é o WhatsApp: montamos a
+   mensagem pronta e o cliente só confirma o envio. */
+const WHATSAPP_LOJA = '5545991321583';
+let mensagemPedidoAtual = '';
+
+function montarMensagemPedido(ped){
+  const partes = [];
+  partes.push('Ol\u00e1! Acabei de fazer um pedido na loja 🛍️');
+  partes.push('');
+  partes.push('*Pedido:* ' + ped.numero);
+  partes.push('*Cliente:* ' + ped.clienteNome);
+  partes.push('*E-mail:* ' + ped.clienteEmail);
+  partes.push('*Recebimento:* ' + (ped.tipoRecebimento === 'retirada'
+    ? 'Retirada no local'
+    : 'Entrega \u2014 CEP ' + (ped.clienteCep || 'n\u00e3o informado')));
+  partes.push('*Pagamento:* ' + rotuloMetodo(ped.metodoPagamento));
+  partes.push('');
+  partes.push('*Itens:*');
+  ped.itens.forEach(i => {
+    partes.push('\u2022 ' + i.qtd + 'x ' + i.nome + ' \u2014 ' + formatarPreco(i.preco * i.qtd));
+  });
+  partes.push('');
+  partes.push('*Total: ' + formatarPreco(ped.total) + '*');
+  return partes.join('\n');
+}
+
+function abrirConfirmacaoPedido(ped){
+  mensagemPedidoAtual = montarMensagemPedido(ped);
+  document.getElementById('numeroPedidoOk').textContent =
+    ped.numero + ' \u00b7 ' + formatarPreco(ped.total);
+  document.getElementById('linkWhatsapp').href =
+    'https://wa.me/' + WHATSAPP_LOJA + '?text=' + encodeURIComponent(mensagemPedidoAtual);
+  abrirModal('overlayPedidoOk');
+}
+
+function copiarMensagemPedido(){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(mensagemPedidoAtual)
+      .then(() => mostrarToast('Mensagem copiada! 📋'))
+      .catch(() => mostrarToast('N\u00e3o consegui copiar por aqui.'));
+  }else{
+    mostrarToast('N\u00e3o consegui copiar neste navegador.');
+  }
+}
+
+/* ==================== MEUS PEDIDOS ==================== */
+function renderizarPedidos(){
+  const cont = document.getElementById('listaPedidos');
+
+  if(adminLogado){
+    // admin vê todos os pedidos com detalhes
+    if(pedidos.length === 0){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
+      return;
+    }
+    cont.innerHTML = ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, false)).join('');
+    return;
+  }
+
+  if(!clienteLogado){
+    cont.innerHTML = `
+      <div class="restrito">
+        <div class="emoji">🔒</div>
+        <div style="font-weight:700;margin-bottom:6px;">Acesso restrito</div>
+        <div style="margin-bottom:16px;">Entre na sua conta para ver seus pedidos.</div>
+        <button class="btn btn-primario" onclick="abrirLoginCliente()">Entrar</button>
+      </div>
+    `;
+    return;
+  }
+
+  const meusPedidos = pedidos.filter(p => p.clienteContaId === clienteLogado.id);
+  if(meusPedidos.length === 0){
+    cont.innerHTML = `<div class="vazio"><div class="emoji">📋</div>Você ainda não fez nenhum pedido.</div>`;
+    return;
+  }
+  cont.innerHTML = ordenarPedidosDesc(meusPedidos).map(ped => cardPedido(ped, false, false)).join('');
+}
+
+function ordenarPedidosDesc(lista){
+  return [...lista].sort((a,b)=> new Date(b.data) - new Date(a.data));
+}
+
+function cardPedido(ped, comCliente, comAcoes){
+  const data = new Date(ped.data).toLocaleString('pt-BR');
+  const cancelado = ped.status === 'Cancelado';
+  const pendente = ped.status === 'Pendente';
+  let classeStatus = '';
+  if(cancelado) classeStatus = 'status-cancelado';
+  else if(pendente) classeStatus = 'status-pendente';
+  return `
+    <div class="pedido-card">
+      <div class="pedido-cabecalho">
+        <div>
+          <div class="id">${ped.numero}</div>
+          <div class="data">${data}${comCliente ? ' · ' + escapeHtml(ped.clienteNome) : ''}</div>
+        </div>
+        <span class="status-tag ${classeStatus}">${ped.status}</span>
+      </div>
+      <div class="pedido-corpo">
+        ${ped.itens.length} item(ns) · Total: <b style="color:var(--preto)">${formatarPreco(ped.total)}</b>
+      </div>
+      <div class="acoes-tabela" style="margin-top:10px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="verDetalhesPedido(${ped.id})">Ver detalhes</button>
+        ${comAcoes && pendente ? `<button class="btn btn-primario btn-sm" onclick="confirmarPagamentoAdmin(${ped.id})">✅ Confirmar pagamento</button>` : ''}
+        ${comAcoes && !cancelado ? `<button class="btn btn-perigo btn-sm" onclick="cancelarPedido(${ped.id})">Cancelar pedido</button>` : ''}
+        ${comAcoes ? `<button class="btn btn-perigo btn-sm" onclick="excluirPedido(${ped.id})">Excluir pedido</button>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function confirmarPagamentoAdmin(pedId){
+  const ped = pedidos.find(p => p.id === pedId);
+  if(!ped || ped.status !== 'Pendente') return;
+  pedirConfirmacao(
+    'Confirmar pagamento',
+    `Confirmar que o pagamento do pedido ${ped.numero} (${rotuloMetodo(ped.metodoPagamento)}) foi recebido?`,
+    function(){
+      ped.status = 'Pago';
+      salvar('lv_pedidos', pedidos);
+      bdSalvarPedido(ped);
+      atualizarTelas();
+      mostrarToast(`Pagamento do pedido ${ped.numero} confirmado! ✅`);
+    },
+    'Sim, recebi',
+    '✅'
+  );
+}
+
+function cancelarPedido(pedId){
+  const ped = pedidos.find(p => p.id === pedId);
+  if(!ped || ped.status === 'Cancelado') return;
+  pedirConfirmacao(
+    'Cancelar pedido',
+    `Cancelar o pedido ${ped.numero}? O estoque dos produtos será devolvido.`,
+    function(){
+      ped.itens.forEach(item => {
+        const p = produtos.find(pr => pr.id === item.produtoId);
+        if(p) p.estoque += item.qtd;
+      });
+      salvar('lv_produtos', produtos);
+
+      ped.status = 'Cancelado';
+      salvar('lv_pedidos', pedidos);
+      bdSalvarPedido(ped);
+      ped.itens.forEach(item => {
+        const p = produtos.find(pr => pr.id === item.produtoId);
+        if(p) bdSalvarProduto(p);
+      });
+
+      registrarHistorico(ped, 'Cancelado');
+
+      atualizarTelas();
+      mostrarToast(`Pedido ${ped.numero} cancelado.`);
+    },
+    'Sim, cancelar',
+    '⚠️'
+  );
+}
+
+function excluirPedido(pedId){
+  const ped = pedidos.find(p => p.id === pedId);
+  if(!ped) return;
+  pedirConfirmacao(
+    'Excluir pedido',
+    `Excluir permanentemente o pedido ${ped.numero}? Essa ação não pode ser desfeita. Ele ficará registrado apenas no histórico de cancelamentos.`,
+    function(){
+      if(ped.status !== 'Cancelado'){
+        ped.itens.forEach(item => {
+          const p = produtos.find(pr => pr.id === item.produtoId);
+          if(p) p.estoque += item.qtd;
+        });
+        salvar('lv_produtos', produtos);
+      }
+
+      registrarHistorico(ped, 'Excluído');
+
+      pedidos = pedidos.filter(p => p.id !== pedId);
+      salvar('lv_pedidos', pedidos);
+      bdExcluirPedido(pedId);
+
+      atualizarTelas();
+      mostrarToast(`Pedido ${ped.numero} excluído.`);
+    },
+    'Sim, excluir',
+    '🗑️'
+  );
+}
+
+function registrarHistorico(ped, tipo){
+  historicoCancelamentos.push({
+    id: gerarId(),
+    numero: ped.numero,
+    dataPedido: ped.data,
+    dataAcao: new Date().toISOString(),
+    tipo,
+    clienteNome: ped.clienteNome,
+    clienteEmail: ped.clienteEmail,
+    itens: ped.itens,
+    total: ped.total
+  });
+  salvar('lv_historico_cancelamentos', historicoCancelamentos);
+}
+
+function verDetalhesPedido(pedId){
+  const ped = pedidos.find(p => p.id === pedId);
+  if(!ped) return;
+  const data = new Date(ped.data).toLocaleString('pt-BR');
+  const itensHtml = ped.itens.map(i => `
+    <div class="linha"><span>${i.qtd}x ${escapeHtml(i.nome)}</span><span>${formatarPreco(i.preco*i.qtd)}</span></div>
+  `).join('');
+  document.getElementById('detalhesPedidoConteudo').innerHTML = `
+    <div class="resumo-pedido" style="margin-top:10px;">
+      <div class="linha"><span>Número</span><span>${ped.numero}</span></div>
+      <div class="linha"><span>Data</span><span>${data}</span></div>
+      <div class="linha"><span>Cliente</span><span>${escapeHtml(ped.clienteNome)}</span></div>
+      <div class="linha"><span>E-mail</span><span>${escapeHtml(ped.clienteEmail)}</span></div>
+      <div class="linha"><span>Recebimento</span><span>${ped.tipoRecebimento === 'retirada' ? '🏬 Retirada no local' : '🚚 Entrega'}</span></div>
+      ${ped.tipoRecebimento !== 'retirada' ? `<div class="linha"><span>CEP</span><span>${escapeHtml(ped.clienteCep || '-')}</span></div>` : ''}
+      <div class="linha"><span>Pagamento</span><span>${rotuloMetodo(ped.metodoPagamento)}</span></div>
+      <div class="linha"><span>Status</span><span>${ped.status}</span></div>
+      <div style="border-top:1px solid var(--cinza-borda);margin:10px 0;"></div>
+      ${itensHtml}
+      <div class="linha total"><span>Total</span><span>${formatarPreco(ped.total)}</span></div>
+    </div>
+  `;
+  abrirModal('overlayDetalhesPedido');
+}
+function rotuloMetodo(m){
+  return {pix:'💠 Pix', cartao:'💳 Cartão', dinheiro:'💵 Dinheiro'}[m] || m;
+}
+
+/* ==================== ADMINISTRAÇÃO ==================== */
+function renderizarAdmin(){
+  const cont = document.getElementById('adminConteudo');
+  if(!adminLogado){
+    if(bancoAtivo){
+      /* Com banco, quem confere a senha é o servidor: ela nunca passa por aqui
+         e não existe em lugar nenhum do código desta página. */
+      cont.innerHTML = `
+        <div class="login-box">
+          <div class="icone">🔐</div>
+          <h2>Área restrita</h2>
+          <div class="sub">Entre com a conta de administrador da loja</div>
+          <div class="erro-msg" id="erroAdmin"></div>
+          <div class="campo" style="text-align:left;">
+            <label>E-mail</label>
+            <input type="email" id="adminEmail" placeholder="seu@email.com"
+              onkeydown="if(event.key==='Enter') entrarComoAdmin()">
+          </div>
+          <div class="campo" style="text-align:left;">
+            <label>Senha</label>
+            <input type="password" id="adminSenha" placeholder="Sua senha"
+              onkeydown="if(event.key==='Enter') entrarComoAdmin()">
+          </div>
+          <button class="btn btn-primario btn-full" onclick="entrarComoAdmin()">Entrar</button>
+        </div>
+      `;
+      return;
+    }
+    cont.innerHTML = `
+      <div class="login-box">
+        <div class="icone">🔐</div>
+        <h2>Área restrita</h2>
+        <div class="sub">Digite a senha de administrador para continuar</div>
+        <div class="erro-msg" id="erroAdmin"></div>
+        <div class="campo" style="text-align:left;">
+          <label>Senha</label>
+          <input type="password" id="senhaAdminInput" placeholder="Senha de administrador" onkeydown="if(event.key==='Enter') loginAdmin()">
+        </div>
+        <button class="btn btn-primario btn-full" onclick="loginAdmin()">Entrar</button>
+        <div style="margin-top:14px;background:#fff4e0;color:#8a6400;padding:10px 12px;
+                    border-radius:8px;font-size:12.5px;line-height:1.5;text-align:left;">
+          <b>Modo demonstração.</b> Esta senha está escrita no código da página,
+          então qualquer pessoa consegue lê-la. Configure o banco de dados
+          (arquivo <b>config.js</b>) para ter uma senha de verdade.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  cont.innerHTML = `
+    <div class="admin-topbar">
+      <h1>Administração</h1>
+      <button class="btn btn-outline btn-sm" onclick="logoutAdmin()">Sair</button>
+    </div>
+    <div class="admin-abas">
+      <button class="${abaAdminAtiva==='produtos'?'ativo':''}" onclick="mudarAbaAdmin('produtos')">📦 Produtos</button>
+      <button class="${abaAdminAtiva==='catalogos'?'ativo':''}" onclick="mudarAbaAdmin('catalogos')">🏷️ Catálogos</button>
+      <button class="${abaAdminAtiva==='pedidos'?'ativo':''}" onclick="mudarAbaAdmin('pedidos')">📋 Pedidos</button>
+      <button class="${abaAdminAtiva==='contas'?'ativo':''}" onclick="mudarAbaAdmin('contas')">👥 Contas cadastradas</button>
+      <button class="${abaAdminAtiva==='historico'?'ativo':''}" onclick="mudarAbaAdmin('historico')">🗑️ Histórico de cancelamentos</button>
+    </div>
+    <div id="adminSubConteudo"></div>
+  `;
+  renderizarSubAbaAdmin();
+}
+
+function mudarAbaAdmin(aba){
+  abaAdminAtiva = aba;
+  renderizarAdmin();
+}
+
+function renderizarSubAbaAdmin(){
+  const cont = document.getElementById('adminSubConteudo');
+  if(!cont) return; // aba de administração ainda não está aberta
+  if(abaAdminAtiva === 'produtos'){
+    cont.innerHTML = `
+      ${!estaNaClaude() ? `
+      <div style="background:#fff4e0;color:#8a6400;padding:11px 14px;border-radius:8px;
+                  font-size:13px;margin-bottom:14px;line-height:1.5;">
+        Neste site as alterações ficam só neste navegador. Para o catálogo mudar
+        para todo mundo, clique em <b>Baixar catalogo.json</b> e substitua o arquivo
+        de mesmo nome no GitHub.
+      </div>` : ''}
+      <div style="margin-bottom:14px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+        ${!estaNaClaude() ? `<button class="btn btn-secundario" onclick="exportarCatalogo()">📥 Baixar catalogo.json</button>` : ''}
+        <button class="btn btn-primario" onclick="abrirModalNovoProduto()">+ Novo produto</button>
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th></th><th>Nome</th><th>Catálogos</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${produtos.map(p => `
+              <tr>
+                <td>${miniaturaProduto(p, 'miniatura')}</td>
+                <td>${escapeHtml(p.nome)}</td>
+                <td>${catalogosDoProduto(p).length
+                  ? catalogosDoProduto(p).map(id => `<span class="etiqueta-catalogo">${escapeHtml(nomeCatalogo(id))}</span>`).join('')
+                  : '<span style="color:var(--cinza-texto);">—</span>'}</td>
+                <td>${formatarPreco(p.preco)}</td>
+                <td>${p.estoque}</td>
+                <td class="acoes-tabela">
+                  <button class="btn btn-outline btn-sm" onclick="editarProduto(${p.id})">Editar</button>
+                  <button class="btn btn-perigo btn-sm" onclick="excluirProduto(${p.id})">Excluir</button>
+                </td>
+              </tr>
+            `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--cinza-texto);">Nenhum produto cadastrado.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if(abaAdminAtiva === 'catalogos'){
+    cont.innerHTML = `
+      <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:13px;color:var(--cinza-texto);max-width:520px;line-height:1.5;">
+          Catálogos são as seções da sua loja. Depois de criar, escolha os catálogos
+          de cada produto no botão <b>Editar</b> da aba 📦 Produtos.
+        </div>
+        <button class="btn btn-primario" onclick="abrirModalNovoCatalogo()">+ Novo catálogo</button>
+      </div>
+      ${catalogos.length === 0 ? `
+        <div class="vazio"><div class="emoji">🏷️</div>Nenhum catálogo criado ainda.</div>
+      ` : `
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Catálogo</th><th>Produtos</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${catalogos.map(c => `
+              <tr>
+                <td><b>${escapeHtml(c.nome)}</b></td>
+                <td>${contarProdutosNoCatalogo(c.id)}</td>
+                <td class="acoes-tabela">
+                  <button class="btn btn-outline btn-sm" onclick="renomearCatalogo('${escaparAtributo(c.id)}')">Renomear</button>
+                  <button class="btn btn-perigo btn-sm" onclick="excluirCatalogo('${escaparAtributo(c.id)}')">Excluir</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    `;
+  } else if(abaAdminAtiva === 'pedidos'){
+    if(pedidos.length === 0){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
+      return;
+    }
+    cont.innerHTML = ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
+  } else if(abaAdminAtiva === 'contas'){
+    if(contas.length === 0){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">👥</div>Nenhuma conta cadastrada ainda.</div>`;
+      return;
+    }
+    cont.innerHTML = `
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th><th>Pedidos</th></tr></thead>
+          <tbody>
+            ${[...contas].sort((a,b)=> new Date(b.dataCadastro) - new Date(a.dataCadastro)).map(c => {
+              const qtdPedidos = pedidos.filter(p => p.clienteContaId === c.id).length;
+              return `
+                <tr>
+                  <td>${escapeHtml(c.nome)}</td>
+                  <td>${escapeHtml(c.email)}</td>
+                  <td>${new Date(c.dataCadastro).toLocaleDateString('pt-BR')}</td>
+                  <td>${qtdPedidos}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else if(abaAdminAtiva === 'historico'){
+    if(historicoCancelamentos.length === 0){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">🗑️</div>Nenhum pedido cancelado ou excluído até agora.</div>`;
+      return;
+    }
+    const ordenado = [...historicoCancelamentos].sort((a,b)=> new Date(b.dataAcao) - new Date(a.dataAcao));
+    cont.innerHTML = `
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Total</th><th>Ação</th><th>Data da ação</th></tr></thead>
+          <tbody>
+            ${ordenado.map(h => `
+              <tr>
+                <td>${escapeHtml(h.numero)}</td>
+                <td>${escapeHtml(h.clienteNome)}</td>
+                <td>${formatarPreco(h.total)}</td>
+                <td><span class="status-tag status-cancelado">${h.tipo}</span></td>
+                <td>${new Date(h.dataAcao).toLocaleString('pt-BR')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
+function loginAdmin(){
+  const senha = document.getElementById('senhaAdminInput').value;
+  if(senha === SENHA_ADMIN){
+    adminLogado = true;
+    salvar('lv_sessao_admin', true);
+    abaAdminAtiva = 'produtos';
+    renderizarAdmin();
+    if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
+    mostrarToast('Bem-vindo(a) à administração! 🔐');
+  }else{
+    mostrarErro('erroAdmin', 'Senha incorreta.');
+  }
+}
+
+async function logoutAdmin(){
+  adminLogado = false;
+  localStorage.removeItem('lv_sessao_admin');
+  if(bancoAtivo){
+    try{ await bd.auth.signOut(); }catch(e){ console.warn('[banco] sair', e); }
+  }
+  renderizarAdmin();
+  if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
+  mostrarToast('Você saiu da administração.');
+}
+
+/* ---- CRUD Produtos ---- */
+function abrirModalNovoProduto(){
+  document.getElementById('tituloModalProduto').textContent = 'Novo produto';
+  document.getElementById('produtoId').value = '';
+  document.getElementById('produtoNome').value = '';
+  document.getElementById('produtoDesc').value = '';
+  document.getElementById('produtoDetalhes').value = '';
+  document.getElementById('produtoPreco').value = '';
+  document.getElementById('produtoEstoque').value = '';
+  document.getElementById('produtoEmoji').value = '';
+  montarEscolhaDeCatalogos(null);
+  prepararCamposFoto(null);
+  limparErros();
+  abrirModal('overlayProduto');
+}
+
+function editarProduto(id){
+  const p = produtos.find(pr => pr.id === id);
+  if(!p) return;
+  document.getElementById('tituloModalProduto').textContent = 'Editar produto';
+  document.getElementById('produtoId').value = p.id;
+  document.getElementById('produtoNome').value = p.nome;
+  document.getElementById('produtoDesc').value = p.descricao || '';
+  document.getElementById('produtoDetalhes').value = p.detalhes || '';
+  document.getElementById('produtoPreco').value = p.preco;
+  document.getElementById('produtoEstoque').value = p.estoque;
+  document.getElementById('produtoEmoji').value = p.emoji || '';
+  montarEscolhaDeCatalogos(p);
+  prepararCamposFoto(p);
+  limparErros();
+  abrirModal('overlayProduto');
+}
+
+async function salvarProduto(){
+  const id = document.getElementById('produtoId').value;
+  const nome = document.getElementById('produtoNome').value.trim();
+  const descricao = document.getElementById('produtoDesc').value.trim();
+  const detalhes = document.getElementById('produtoDetalhes').value.trim();
+  const preco = parseFloat(document.getElementById('produtoPreco').value);
+  const estoque = parseInt(document.getElementById('produtoEstoque').value);
+  const emoji = document.getElementById('produtoEmoji').value.trim() || '📦';
+
+  if(!nome || isNaN(preco) || preco < 0 || isNaN(estoque) || estoque < 0){
+    mostrarErro('erroProduto', 'Preencha nome, preço e estoque corretamente.');
+    return;
+  }
+
+  // resolve a foto antes de mexer no produto
+  let dadosFoto = null;
+  if(fotoSelecionada){
+    mostrarToast('Guardando a foto\u2026');
+    dadosFoto = await guardarImagem(fotoSelecionada);
+  }else if(fotoRemovida){
+    dadosFoto = {imagem:'', imagemId:''};
+  }
+
+  const catalogosEscolhidos = lerCatalogosMarcados();
+
+  let produtoSalvo;
+  let idFotoAntiga = '';
+  if(id){
+    produtoSalvo = produtos.find(pr => String(pr.id) === String(id));
+    if(!produtoSalvo) return;
+    idFotoAntiga = produtoSalvo.imagemId || '';
+    produtoSalvo.nome = nome; produtoSalvo.descricao = descricao;
+    produtoSalvo.detalhes = detalhes;
+    produtoSalvo.preco = preco; produtoSalvo.estoque = estoque; produtoSalvo.emoji = emoji;
+    produtoSalvo.catalogos = catalogosEscolhidos;
+    mostrarToast('Produto atualizado com sucesso!');
+  }else{
+    produtoSalvo = {id: gerarId(), nome, descricao, detalhes, preco, estoque, emoji,
+                    catalogos: catalogosEscolhidos, imagem:'', imagemId:''};
+    produtos.push(produtoSalvo);
+    mostrarToast('Produto cadastrado com sucesso!');
+  }
+  if(dadosFoto){
+    produtoSalvo.imagem = dadosFoto.imagem;
+    produtoSalvo.imagemId = dadosFoto.imagemId;
+    if(idFotoAntiga && idFotoAntiga !== dadosFoto.imagemId) apagarImagemGuardada(idFotoAntiga);
+  }
+  fotoSelecionada = null;
+  fotoRemovida = false;
+  salvar('lv_produtos', produtos);
+  await bdSalvarProduto(produtoSalvo);
+  fecharModal('overlayProduto');
+  renderizarSubAbaAdmin();
+  renderizarLoja();
+  publicarCatalogo();
+}
+
+function excluirProduto(id){
+  const prod = produtos.find(p => p.id === id);
+  if(!prod) return;
+  pedirConfirmacao(
+    'Excluir produto',
+    `Tem certeza que deseja excluir "${prod.nome}" da loja? Essa ação não pode ser desfeita.`,
+    function(){
+      produtos = produtos.filter(p => p.id !== id);
+      salvar('lv_produtos', produtos);
+      bdExcluirProduto(id);
+      apagarImagemGuardada(prod.imagemId);
+      atualizarTelas();
+      mostrarToast('Produto excluído.');
+      publicarCatalogo();
+    },
+    'Sim, excluir',
+    '🗑️'
+  );
+}
+
+/* ==================== INICIALIZAÇÃO ==================== */
+function iniciar(){
+  renderizarAreaConta();
+  renderizarLoja();
+  atualizarBadgeCarrinho();
+  conectarArmazemFotos();
+  conectarPublicador();
+  carregarCatalogoDoArquivo();
+  conectarBanco();
+}
+iniciar();
+</script>
+</body>
+</html>
