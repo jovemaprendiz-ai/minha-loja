@@ -62,6 +62,8 @@
   .btn-sm{padding:6px 12px;font-size:13px;}
   .btn-perigo{background:#fdeaea;color:var(--vermelho-escuro);}
   .btn-perigo:hover{background:#f9d5d5;}
+  .btn-detalhes{background:#33373d;color:#fff;}
+  .btn-detalhes:hover{filter:brightness(1.25);}
 
   nav.abas{
     max-width:1100px;margin:0 auto;padding:0 20px;
@@ -131,11 +133,46 @@
   }
   .card-produto .info{padding:14px;display:flex;flex-direction:column;gap:6px;flex:1;}
   .card-produto .nome{font-weight:700;font-size:15px;}
-  .card-produto .desc{font-size:12.5px;color:var(--cinza-texto);flex:1;}
-  .card-produto .preco{font-size:18px;font-weight:800;color:var(--vermelho);}
+  .card-produto .desc{font-size:12.5px;color:var(--cinza-texto);line-height:1.5;}
+  /* Descrições longas ficam cortadas em 3 linhas. Sem isso, um único produto
+     com texto grande estica a linha inteira da grade e deixa os cards
+     vizinhos ocos. O botão "ver mais" devolve o texto completo. */
+  .card-produto .desc.truncada{
+    display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;
+    -webkit-box-orient:vertical;overflow:hidden;
+  }
+  .card-produto .ver-mais{
+    background:none;border:none;padding:0;align-self:flex-start;
+    color:var(--vermelho);font-size:12.5px;font-weight:700;cursor:pointer;
+  }
+  .card-produto .ver-mais:hover{text-decoration:underline;}
+  /* Empurra preço, estoque e botões para a base, independente do tamanho
+     do texto acima. */
+  .card-produto .preco{font-size:18px;font-weight:800;color:var(--vermelho);margin-top:auto;}
   .card-produto .estoque{font-size:12px;color:var(--cinza-texto);}
   .card-produto .estoque.baixo{color:#b8860b;}
   .card-produto .estoque.zero{color:var(--vermelho);font-weight:700;}
+  .card-produto .acoes{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
+  /* O texto de detalhes é digitado num textarea: white-space preserva as
+     quebras de linha que a pessoa escreveu, sem precisar de HTML. */
+  .detalhes-produto{
+    white-space:pre-wrap;font-size:14px;line-height:1.6;color:var(--preto);
+  }
+  .detalhes-produto-topo{
+    display:flex;gap:14px;align-items:center;margin-bottom:14px;
+  }
+  .detalhes-produto-foto{
+    width:84px;height:84px;border-radius:10px;background:var(--cinza-fundo);
+    display:flex;align-items:center;justify-content:center;font-size:38px;
+    overflow:hidden;flex-shrink:0;
+  }
+  .detalhes-produto-foto img{width:100%;height:100%;object-fit:cover;display:block;}
+  .detalhes-produto-nome{font-size:19px;font-weight:800;line-height:1.3;}
+  .detalhes-produto-preco{font-size:22px;font-weight:800;color:var(--vermelho);margin-top:4px;}
+  .detalhes-secao{margin-top:18px;}
+  .detalhes-secao h3{
+    font-size:15px;font-weight:800;color:var(--vermelho);margin-bottom:8px;
+  }
   .vazio{
     text-align:center;padding:60px 20px;color:var(--cinza-texto);
   }
@@ -488,6 +525,11 @@
       <label>Descrição</label>
       <textarea id="produtoDesc" rows="2" placeholder="Breve descrição do produto"></textarea>
     </div>
+    <div class="campo">
+      <label>Observação <span style="font-weight:400;color:var(--cinza-texto);">(aparece em "Ver detalhes")</span></label>
+      <textarea id="produtoDetalhes" rows="5"
+        placeholder="Texto completo sobre o produto. Pode usar vários parágrafos — as quebras de linha são mantidas."></textarea>
+    </div>
     <div class="linha2">
       <div class="campo">
         <label>Preço (R$)</label>
@@ -521,6 +563,14 @@
       <input type="text" id="produtoEmoji" placeholder="Ex: 👟" maxlength="4">
     </div>
     <button class="btn btn-primario btn-full" onclick="salvarProduto()">Salvar produto</button>
+  </div>
+</div>
+
+<!-- MODAL DETALHES DO PRODUTO -->
+<div class="overlay" id="overlayDetalhesProduto">
+  <div class="modal" style="max-width:640px;">
+    <button class="fechar-modal" onclick="fecharModal('overlayDetalhesProduto')">✕</button>
+    <div id="detalhesProdutoConteudo"></div>
   </div>
 </div>
 
@@ -1161,6 +1211,7 @@ function produtoDoBanco(r){
     id: Number(r.id), nome: r.nome, descricao: r.descricao || '',
     preco: Number(r.preco), estoque: Number(r.estoque), emoji: r.emoji || '📦',
     imagem: r.imagem_url || '', imagemId: '',
+    detalhes: r.detalhes || '',
     catalogos: Array.isArray(r.catalogos) ? r.catalogos.map(Number) : []
   };
 }
@@ -1169,6 +1220,7 @@ function produtoParaBanco(p){
     id: p.id, nome: p.nome, descricao: p.descricao || '',
     preco: p.preco, estoque: p.estoque, emoji: p.emoji || '📦',
     imagem_url: p.imagem || '', catalogos: catalogosDoProduto(p).map(Number),
+    detalhes: p.detalhes || '',
     atualizado_em: new Date().toISOString()
   };
 }
@@ -1499,6 +1551,64 @@ function filtrarPorCatalogo(id){
   renderizarLoja();
 }
 
+/* ==================== DETALHES DO PRODUTO ====================
+   Um único texto livre por produto ("Observação"), mostrado numa janela.
+   Produtos cadastrados antes deste campo existir simplesmente vêm sem ele.
+
+   O botão só aparece quando há algo para mostrar — um "Ver detalhes" que
+   abre uma janela vazia irrita mais do que ajuda. */
+function temDetalhes(p){
+  return String(p.detalhes || '').trim() !== '';
+}
+
+function verDetalhesProduto(id){
+  const p = produtos.find(pr => String(pr.id) === String(id));
+  if(!p) return;
+  const texto = String(p.detalhes || '').trim();
+
+  let html = `
+    <div class="detalhes-produto-topo">
+      <div class="detalhes-produto-foto">${blocoImagem(p)}</div>
+      <div>
+        <div class="detalhes-produto-nome">${escapeHtml(p.nome)}</div>
+        <div class="detalhes-produto-preco">${formatarPreco(p.preco)}</div>
+      </div>
+    </div>`;
+
+  const descricao = String(p.descricao || '').trim();
+  if(descricao){
+    html += `
+      <div class="detalhes-secao">
+        <h3>Descrição</h3>
+        <div class="detalhes-produto">${escapeHtml(descricao)}</div>
+      </div>`;
+  }
+
+  if(texto){
+    html += `
+      <div class="detalhes-secao">
+        <h3>Observação</h3>
+        <div class="detalhes-produto">${escapeHtml(texto)}</div>
+      </div>`;
+  }
+
+  html += `
+    <button class="btn btn-detalhes btn-full"
+      style="margin-top:20px;${p.estoque === 0 ? 'opacity:.5;cursor:not-allowed;' : ''}"
+      ${p.estoque === 0 ? 'disabled' : ''}
+      onclick="comprarPelosDetalhes(${p.id})">
+      ${p.estoque === 0 ? 'Indisponível' : 'Comprar'}
+    </button>`;
+
+  document.getElementById('detalhesProdutoConteudo').innerHTML = html;
+  abrirModal('overlayDetalhesProduto');
+}
+
+function comprarPelosDetalhes(id){
+  adicionarAoCarrinho(id);
+  fecharModal('overlayDetalhesProduto');
+}
+
 function produtosVisiveis(){
   if(catalogoAtivo === 'todos') return produtos;
   return produtos.filter(p =>
@@ -1518,6 +1628,10 @@ function renderizarLoja(){
     return;
   }
   grid.innerHTML = lista.map(p => {
+    const desc = p.descricao || '';
+    /* 130 caracteres é mais ou menos o que cabe em 3 linhas do card. Abaixo
+       disso o texto não seria cortado e o botão só poluiria. */
+    const descLonga = desc.length > 130;
     let estoqueClasse = '';
     let estoqueTxt = `${p.estoque} em estoque`;
     if(p.estoque === 0){ estoqueClasse='zero'; estoqueTxt='Fora de estoque'; }
@@ -1527,13 +1641,18 @@ function renderizarLoja(){
         <div class="imagem">${blocoImagem(p)}</div>
         <div class="info">
           <div class="nome">${escapeHtml(p.nome)}</div>
-          <div class="desc">${escapeHtml(p.descricao || '')}</div>
+          <div class="desc${descLonga ? ' truncada' : ''}">${escapeHtml(desc)}</div>
+          ${descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
           <div class="preco">${formatarPreco(p.preco)}</div>
           <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
-          <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
-            onclick="adicionarAoCarrinho(${p.id})">
-            ${p.estoque===0 ? 'Indisponível' : '🛒 Adicionar'}
-          </button>
+          <div class="acoes">
+            <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
+              onclick="adicionarAoCarrinho(${p.id})">
+              ${p.estoque===0 ? 'Indisponível' : '🛒 Adicionar'}
+            </button>
+            ${temDetalhes(p) ? `<button class="btn btn-detalhes btn-full"
+              onclick="verDetalhesProduto(${p.id})">➜] Ver detalhes</button>` : ''}
+          </div>
         </div>
       </div>
     `;
@@ -2237,6 +2356,7 @@ function abrirModalNovoProduto(){
   document.getElementById('produtoId').value = '';
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoDesc').value = '';
+  document.getElementById('produtoDetalhes').value = '';
   document.getElementById('produtoPreco').value = '';
   document.getElementById('produtoEstoque').value = '';
   document.getElementById('produtoEmoji').value = '';
@@ -2253,6 +2373,7 @@ function editarProduto(id){
   document.getElementById('produtoId').value = p.id;
   document.getElementById('produtoNome').value = p.nome;
   document.getElementById('produtoDesc').value = p.descricao || '';
+  document.getElementById('produtoDetalhes').value = p.detalhes || '';
   document.getElementById('produtoPreco').value = p.preco;
   document.getElementById('produtoEstoque').value = p.estoque;
   document.getElementById('produtoEmoji').value = p.emoji || '';
@@ -2266,6 +2387,7 @@ async function salvarProduto(){
   const id = document.getElementById('produtoId').value;
   const nome = document.getElementById('produtoNome').value.trim();
   const descricao = document.getElementById('produtoDesc').value.trim();
+  const detalhes = document.getElementById('produtoDetalhes').value.trim();
   const preco = parseFloat(document.getElementById('produtoPreco').value);
   const estoque = parseInt(document.getElementById('produtoEstoque').value);
   const emoji = document.getElementById('produtoEmoji').value.trim() || '📦';
@@ -2293,11 +2415,12 @@ async function salvarProduto(){
     if(!produtoSalvo) return;
     idFotoAntiga = produtoSalvo.imagemId || '';
     produtoSalvo.nome = nome; produtoSalvo.descricao = descricao;
+    produtoSalvo.detalhes = detalhes;
     produtoSalvo.preco = preco; produtoSalvo.estoque = estoque; produtoSalvo.emoji = emoji;
     produtoSalvo.catalogos = catalogosEscolhidos;
     mostrarToast('Produto atualizado com sucesso!');
   }else{
-    produtoSalvo = {id: gerarId(), nome, descricao, preco, estoque, emoji,
+    produtoSalvo = {id: gerarId(), nome, descricao, detalhes, preco, estoque, emoji,
                     catalogos: catalogosEscolhidos, imagem:'', imagemId:''};
     produtos.push(produtoSalvo);
     mostrarToast('Produto cadastrado com sucesso!');
