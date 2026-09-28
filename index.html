@@ -172,6 +172,44 @@
   .card-produto .estoque.baixo{color:#b8860b;}
   .card-produto .estoque.zero{color:var(--vermelho);font-weight:700;}
   .card-produto .acoes{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
+
+  /* CARTÃO HOLOGRÁFICO
+     A inclinação e o brilho seguem o ponteiro através das variáveis --mx/--my
+     (posição dentro do card) e --rx/--ry (ângulos), que o JS atualiza. */
+  .grid-produtos{perspective:1100px;}
+  .card-produto{position:relative;transition:transform .3s ease, box-shadow .3s ease;}
+  .card-produto.holo{
+    transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+    box-shadow:0 16px 32px rgba(0,0,0,.18);
+    /* Durante o movimento a transição precisa ser curta, senão o card
+       "persegue" o cursor com atraso. */
+    transition:transform .07s linear, box-shadow .3s ease;
+    z-index:2;
+  }
+  .card-produto::after{
+    content:'';position:absolute;inset:0;border-radius:12px;
+    pointer-events:none;opacity:0;transition:opacity .3s ease;
+    background:
+      radial-gradient(circle at var(--mx,50%) var(--my,50%),
+        rgba(255,255,255,.42), rgba(255,255,255,0) 40%),
+      linear-gradient(115deg,
+        rgba(255,0,140,.24) 12%, rgba(0,214,255,.24) 34%,
+        rgba(120,255,140,.24) 52%, rgba(255,220,0,.24) 70%,
+        rgba(180,0,255,.24) 88%);
+    /* A faixa colorida é bem maior que o card e usa --gx/--gy, que varrem
+       uma faixa maior que 0–100%. É isso que faz as cores correrem bastante
+       com um movimento pequeno do ponteiro. */
+    background-size:180% 180%, 320% 320%;
+    background-position:0 0, var(--gx,50%) var(--gy,50%);
+    mix-blend-mode:overlay;
+  }
+  .card-produto.holo::after{opacity:1;}
+  /* Quem configurou o sistema para reduzir animações não recebe nem a
+     inclinação nem o brilho. */
+  @media (prefers-reduced-motion: reduce){
+    .card-produto, .card-produto.holo{transition:none;transform:none;}
+    .card-produto::after{display:none;}
+  }
   /* O texto de detalhes é digitado num textarea: white-space preserva as
      quebras de linha que a pessoa escreveu, sem precisar de HTML. */
   .detalhes-produto{
@@ -1768,6 +1806,61 @@ function renderizarLoja(){
     `;
   }).join('');
 }
+
+/* ==================== EFEITO HOLOGRÁFICO DOS CARDS ====================
+   Os listeners ficam na grade, não em cada card: a vitrine é remontada com
+   innerHTML toda vez que muda de catálogo, e listeners presos aos cards se
+   perderiam nessa troca. A grade em si nunca é substituída. */
+(function(){
+  const grid = document.getElementById('gridProdutos');
+  if(!grid) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const INCLINACAO = 12;  // graus no canto
+  const VARREDURA = 220;  // o quanto a faixa colorida corre (em %)
+
+  function mover(e){
+    const card = e.target.closest('.card-produto');
+    if(!card) return;
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    if(x < 0 || x > 1 || y < 0 || y > 1) return;
+    card.style.setProperty('--mx', (x * 100) + '%');
+    card.style.setProperty('--my', (y * 100) + '%');
+    /* Centrado em 50% e ampliado: o ponteiro andar meia largura joga a faixa
+       muito além da borda, e as cores trocam de verdade. */
+    card.style.setProperty('--gx', (50 + (x - 0.5) * VARREDURA) + '%');
+    card.style.setProperty('--gy', (50 + (y - 0.5) * VARREDURA) + '%');
+    card.style.setProperty('--rx', ((0.5 - y) * INCLINACAO) + 'deg');
+    card.style.setProperty('--ry', ((x - 0.5) * INCLINACAO) + 'deg');
+    card.classList.add('holo');
+  }
+
+  function soltar(card){
+    if(!card) return;
+    card.classList.remove('holo');
+    card.style.removeProperty('--rx');
+    card.style.removeProperty('--ry');
+    card.style.removeProperty('--gx');
+    card.style.removeProperty('--gy');
+  }
+
+  grid.addEventListener('pointermove', mover);
+
+  grid.addEventListener('pointerout', function(e){
+    const card = e.target.closest('.card-produto');
+    /* pointerout dispara também ao passar de um filho para outro dentro do
+       mesmo card; só solta quando o ponteiro realmente sai dele. */
+    if(card && !card.contains(e.relatedTarget)) soltar(card);
+  });
+
+  /* No toque não existe "sair com o dedo": o efeito acompanha enquanto o
+     dedo está na tela e some ao levantar. O padrão do navegador é
+     preservado, então a rolagem continua funcionando normalmente. */
+  grid.addEventListener('pointerup', e => soltar(e.target.closest('.card-produto')));
+  grid.addEventListener('pointercancel', e => soltar(e.target.closest('.card-produto')));
+})();
 
 /* ==================== CARRINHO ==================== */
 function adicionarAoCarrinho(produtoId){
