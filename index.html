@@ -703,6 +703,11 @@
    catálogo muda — nunca a página já mexida na tela. */
 const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElement.outerHTML;
 /* ==================== CONFIG ==================== */
+/* Muda a cada publicação. Vai junto em toda notificação: quando um cliente
+   está com uma cópia antiga do site aberta (aba esquecida, cache do
+   celular), dá para ver isso na hora, em vez de caçar um defeito que já foi
+   corrigido. Notificação sem versão = cliente usando a versão antiga. */
+const VERSAO_LOJA = '2026-09-29.3';
 const SENHA_ADMIN = "admin123";
 const CHAVE_PIX = "106.459.049-70";
 const TITULAR_PIX = "João Eduardo Pompeo Neves";
@@ -1651,7 +1656,7 @@ async function registrarEvento(tipo, titulo, detalhe){
     const { error } = await bd.from('eventos').insert({
       tipo,
       titulo: String(titulo).slice(0, 120),
-      detalhe: String(detalhe || '').slice(0, 500),
+      detalhe: (String(detalhe || '').slice(0, 470) + ` · versão ${VERSAO_LOJA}`).slice(0, 500),
       cliente: clienteLogado
         ? `${clienteLogado.nome} (${clienteLogado.email})`.slice(0, 200)
         : 'Visitante não identificado',
@@ -2697,7 +2702,7 @@ function renderizarAdmin(){
 
   cont.innerHTML = `
     <div class="admin-topbar">
-      <h1>Administração</h1>
+      <h1>Administração <span style="font-size:12px;font-weight:600;color:var(--cinza-texto);">versão ${VERSAO_LOJA}</span></h1>
       <button class="btn btn-outline btn-sm" onclick="logoutAdmin()">Sair</button>
     </div>
     <div class="admin-abas">
