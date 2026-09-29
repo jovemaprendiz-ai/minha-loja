@@ -1006,6 +1006,10 @@ async function criarContaNoBanco(nome, email, senha){
   });
   if(error){
     const msg = error.message || '';
+    /* Mesmo raciocínio do pedido: o cadastro falha no aparelho do cliente e
+       o dono da loja precisa saber o motivo. */
+    registrarEvento('conta_invalida', '⚠️ FALHA ao criar conta',
+      `${nome} — ${email} — motivo: ${msg}`);
     if(/already registered|already exists|user already/i.test(msg)){
       mostrarErro('erroCadastro', 'Já existe uma conta com este e-mail.');
     }else if(/password/i.test(msg)){
@@ -1498,14 +1502,22 @@ async function bdExcluirCatalogo(id, produtosAfetados){
    pode ser recusado pelas regras de acesso. Devolve true se gravou. */
 async function bdCriarPedido(ped){
   if(!bancoAtivo) return true;
+  let erro = null;
   try{
     const { error } = await bd.from('pedidos').insert(pedidoParaBanco(ped));
-    if(error){ console.warn('[banco] criar pedido', error); return false; }
-    return true;
-  }catch(e){
-    console.warn('[banco] criar pedido', e);
-    return false;
-  }
+    erro = error || null;
+  }catch(e){ erro = e; }
+  if(!erro) return true;
+  console.warn('[banco] criar pedido', erro);
+  /* Um pedido perdido é o pior defeito de uma loja, e acontece no aparelho
+     do cliente, onde o dono não enxerga o console. Então o motivo técnico
+     vai para as notificações do administrador. Usa o tipo "pagamento", que
+     é aceito desde a primeira versão do banco, para o aviso chegar mesmo
+     que o schema.sql mais novo ainda não tenha sido aplicado. */
+  registrarEvento('pagamento', '⚠️ FALHA ao registrar pedido',
+    `${ped.numero} — ${ped.clienteNome} (${ped.clienteEmail}) — total ${formatarPreco(ped.total)} — ` +
+    `motivo: ${(erro.message || String(erro))}${erro.code ? ' [' + erro.code + ']' : ''}`);
+  return false;
 }
 
 async function bdSalvarPedido(ped){
@@ -1962,6 +1974,12 @@ function renderizarLoja(){
           <div class="nome">${escapeHtml(p.nome)}</div>
           <div class="desc${descLonga ? ' truncada' : ''}">${escapeHtml(desc)}</div>
           ${descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
+          <div class="preco">${formatarPreco(p.preco)}</div>
+          <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
+          <div class="acoes">
+            <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
+              onclick="adicionarAoCarrinho(${p.id})">
+              ${p.estoque===0 ? 'Indisponível{descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
           <div class="preco">${formatarPreco(p.preco)}</div>
           <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
           <div class="acoes">
@@ -2912,28 +2930,4 @@ function excluirProduto(id){
     function(){
       produtos = produtos.filter(p => p.id !== id);
       salvar('lv_produtos', produtos);
-      bdExcluirProduto(id);
-      apagarImagemGuardada(prod.imagemId);
-      atualizarTelas();
-      mostrarToast('Produto excluído.');
-      publicarCatalogo();
-    },
-    'Sim, excluir',
-    '🗑️'
-  );
-}
-
-/* ==================== INICIALIZAÇÃO ==================== */
-function iniciar(){
-  renderizarAreaConta();
-  renderizarLoja();
-  atualizarBadgeCarrinho();
-  conectarArmazemFotos();
-  conectarPublicador();
-  carregarCatalogoDoArquivo();
-  conectarBanco();
-}
-iniciar();
-</script>
-</body>
-</html>
+      bdExcluirProduto(
