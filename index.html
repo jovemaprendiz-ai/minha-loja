@@ -1493,6 +1493,21 @@ async function bdExcluirCatalogo(id, produtosAfetados){
   if(error){ avisarErroBanco(error, 'excluir catálogo'); return; }
   for(const p of produtosAfetados){ await bdSalvarProduto(p); }
 }
+/* Registro de um pedido NOVO. Usa insert, não upsert: o visitante só tem
+   permissão para criar pedidos, não para alterar existentes, e o upsert
+   pode ser recusado pelas regras de acesso. Devolve true se gravou. */
+async function bdCriarPedido(ped){
+  if(!bancoAtivo) return true;
+  try{
+    const { error } = await bd.from('pedidos').insert(pedidoParaBanco(ped));
+    if(error){ console.warn('[banco] criar pedido', error); return false; }
+    return true;
+  }catch(e){
+    console.warn('[banco] criar pedido', e);
+    return false;
+  }
+}
+
 async function bdSalvarPedido(ped){
   if(!bancoAtivo) return;
   const { error } = await bd.from('pedidos').upsert(pedidoParaBanco(ped));
@@ -1590,7 +1605,9 @@ function limparNotificacoes(){
 }
 
 async function atualizarNotificacoes(){
-  await carregarEventos();
+  /* Pedidos junto: quem vê o aviso de pedido novo vai direto procurá-lo na
+     aba Pedidos, e ele precisa já estar lá. */
+  await Promise.all([carregarEventos(), carregarPedidosDoBanco(), carregarClientesDoBanco()]);
   renderizarAdmin();
 }
 
@@ -2173,7 +2190,12 @@ function atualizarTipoRecebimento(){
 }
 atualizarMetodoPag();
 
-function confirmarPagamento(){
+/* Trava contra clique duplo: sem ela, dois toques rápidos no botão viram dois
+   pedidos iguais enquanto o primeiro ainda está sendo enviado. */
+let enviandoPedido = false;
+
+async function confirmarPagamento(){
+  if(enviandoPedido) return;
   const nome = document.getElementById('pagNome').value.trim();
   const email = document.getElementById('pagEmail').value.trim();
   const tipoRecebimento = document.querySelector('input[name="tipoRecebimento"]:checked').value;
@@ -2231,13 +2253,37 @@ function confirmarPagamento(){
     total,
     status: 'Pendente'
   };
+  /* Com banco, o pedido só conta como feito depois que o servidor confirmar
+     a gravação. Antes, a tela de "pedido registrado" aparecia de qualquer
+     jeito e, se o banco recusasse, o cliente achava que tinha comprado e o
+     pedido nunca chegava ao administrador. */
+  if(bancoAtivo){
+    const botao = document.querySelector('#overlayPagamento button[onclick="confirmarPagamento()"]');
+    enviandoPedido = true;
+    if(botao){ botao.disabled = true; botao.textContent = 'Enviando pedido…'; }
+    const gravou = await bdCriarPedido(novoPedido);
+    enviandoPedido = false;
+    if(botao){ botao.disabled = false; botao.textContent = 'Confirmar pagamento'; }
+    if(!gravou){
+      // devolve o estoque que foi baixado só na tela, e mantém o carrinho
+      itensPedido.forEach(i => {
+        const p = produtos.find(pr => pr.id === i.produtoId);
+        if(p) p.estoque += i.qtd;
+      });
+      salvar('lv_produtos', produtos);
+      mostrarErro('erroPagamento',
+        'Não consegui registrar seu pedido agora. Verifique a internet e tente de novo.');
+      return;
+    }
+    registrarEvento('pedido', 'Novo pedido recebido',
+      `${novoPedido.numero} — ${nome} (${email}) — ${itensPedido.length} item(ns) — total ${formatarPreco(total)} — ${rotuloMetodo(metodo)}`);
+  }
+  /* A baixa de estoque no banco é feita pelo próprio servidor quando o pedido
+     é gravado (gatilho pedidos_baixa_estoque no schema.sql). O navegador do
+     cliente não tem permissão para alterar produtos. */
+
   pedidos.push(novoPedido);
   salvar('lv_pedidos', pedidos);
-  bdSalvarPedido(novoPedido);
-  itensPedido.forEach(i => {
-    const p = produtos.find(pr => pr.id === i.produtoId);
-    if(p) bdSalvarProduto(p);
-  });
 
   // limpa carrinho
   carrinho = [];
@@ -2697,7 +2743,7 @@ function renderizarSubAbaAdmin(){
       cont.innerHTML = topo + `<div class="vazio"><div class="emoji">🔔</div>Nenhuma notificação por enquanto.</div>`;
       return;
     }
-    const icones = {conta:'👤', conta_invalida:'⚠️', carrinho:'🛒', pagamento:'💳'};
+    const icones = {conta:'👤', conta_invalida:'⚠️', carrinho:'🛒', pagamento:'💳', pedido:'✅'};
     cont.innerHTML = topo + eventos.map(ev => `
       <div class="notif ${ev.lido ? 'lida' : 'nao-lida'}">
         <div class="icone">${icones[ev.tipo] || '🔔'}</div>
