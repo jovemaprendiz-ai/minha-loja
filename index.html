@@ -167,7 +167,11 @@
   .card-produto .ver-mais:hover{text-decoration:underline;}
   /* Empurra preço, estoque e botões para a base, independente do tamanho
      do texto acima. */
-  .card-produto .preco{font-size:18px;font-weight:800;color:var(--vermelho);margin-top:auto;}
+  .card-produto .preco-bloco{margin-top:auto;}
+  .card-produto .preco{font-size:18px;font-weight:800;color:var(--vermelho);}
+  /* "a partir de" e "~~R$ 142,00~~ por", acima do preço atual */
+  .preco-rotulo{font-size:12.5px;color:var(--cinza-texto);line-height:1.3;}
+  .preco-rotulo s{color:var(--cinza-texto);}
   .card-produto .estoque{font-size:12px;color:var(--cinza-texto);}
   .card-produto .estoque.baixo{color:#b8860b;}
   .card-produto .estoque.zero{color:var(--vermelho);font-weight:700;}
@@ -632,6 +636,19 @@
         <input type="number" id="produtoEstoque" min="0" placeholder="0">
       </div>
     </div>
+    <div class="linha2">
+      <div class="campo">
+        <label>Preço antigo (R$) <span style="font-weight:400;color:var(--cinza-texto);">— opcional</span></label>
+        <input type="number" id="produtoPrecoAntigo" step="0.01" min="0" placeholder="Aparece riscado">
+      </div>
+      <div class="campo">
+        <label>&nbsp;</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;margin-top:10px;">
+          <input type="checkbox" id="produtoAPartirDe" style="width:auto;">
+          Mostrar "a partir de"
+        </label>
+      </div>
+    </div>
     <div class="campo">
       <label>Foto do produto</label>
       <div class="foto-campo">
@@ -742,7 +759,7 @@ const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElemen
    está com uma cópia antiga do site aberta (aba esquecida, cache do
    celular), dá para ver isso na hora, em vez de caçar um defeito que já foi
    corrigido. Notificação sem versão = cliente usando a versão antiga. */
-const VERSAO_LOJA = '2026-09-29.5';
+const VERSAO_LOJA = '2026-09-29.6';
 const SENHA_ADMIN = "admin123";
 const CHAVE_PIX = "106.459.049-70";
 const TITULAR_PIX = "João Eduardo Pompeo Neves";
@@ -1488,6 +1505,8 @@ function produtoDoBanco(r){
     preco: Number(r.preco), estoque: Number(r.estoque), emoji: r.emoji || '📦',
     imagem: r.imagem_url || '', imagemId: '',
     detalhes: r.detalhes || '',
+    precoAntigo: r.preco_antigo == null ? null : Number(r.preco_antigo),
+    aPartirDe: !!r.a_partir_de,
     catalogos: Array.isArray(r.catalogos) ? r.catalogos.map(Number) : []
   };
 }
@@ -1497,6 +1516,8 @@ function produtoParaBanco(p){
     preco: p.preco, estoque: p.estoque, emoji: p.emoji || '📦',
     imagem_url: p.imagem || '', catalogos: catalogosDoProduto(p).map(Number),
     detalhes: p.detalhes || '',
+    preco_antigo: p.precoAntigo == null ? null : p.precoAntigo,
+    a_partir_de: !!p.aPartirDe,
     atualizado_em: new Date().toISOString()
   };
 }
@@ -2106,6 +2127,17 @@ function limparHtmlDescricao(html){
   return saida.innerHTML;
 }
 
+/* Linhas acima do preço: "a partir de" e o preço antigo riscado. O preço
+   antigo só aparece se for maior que o atual; senão não é promoção. */
+function rotulosDePreco(p){
+  let html = '';
+  if(p.aPartirDe) html += `<div class="preco-rotulo">a partir de</div>`;
+  if(p.precoAntigo != null && p.precoAntigo > p.preco){
+    html += `<div class="preco-rotulo"><s>${formatarPreco(p.precoAntigo)}</s> por</div>`;
+  }
+  return html;
+}
+
 function descricaoEhHtml(desc){
   return /<[a-z][\s\S]*>/i.test(String(desc || ''));
 }
@@ -2171,7 +2203,8 @@ function verDetalhesProduto(id){
       <div class="detalhes-produto-foto">${blocoImagem(p)}</div>
       <div>
         <div class="detalhes-produto-nome">${escapeHtml(p.nome)}</div>
-        <div class="detalhes-produto-preco">${formatarPreco(p.preco)}</div>
+        <div style="margin-top:4px;">${rotulosDePreco(p)}</div>
+        <div class="detalhes-produto-preco" style="margin-top:0;">${formatarPreco(p.preco)}</div>
       </div>
     </div>`;
 
@@ -2243,7 +2276,10 @@ function renderizarLoja(){
           <div class="nome">${escapeHtml(p.nome)}</div>
           <div class="desc${descLonga ? ' truncada' : ''}">${escapeHtml(desc)}</div>
           ${descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
-          <div class="preco">${formatarPreco(p.preco)}</div>
+          <div class="preco-bloco">
+            ${rotulosDePreco(p)}
+            <div class="preco">${formatarPreco(p.preco)}</div>
+          </div>
           <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
           <div class="acoes">
             <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
@@ -3115,6 +3151,8 @@ function abrirModalNovoProduto(){
   document.getElementById('produtoDetalhes').value = '';
   document.getElementById('produtoPreco').value = '';
   document.getElementById('produtoEstoque').value = '';
+  document.getElementById('produtoPrecoAntigo').value = '';
+  document.getElementById('produtoAPartirDe').checked = false;
   document.getElementById('produtoEmoji').value = '';
   montarEscolhaDeCatalogos(null);
   prepararCamposFoto(null);
@@ -3132,6 +3170,8 @@ function editarProduto(id){
   document.getElementById('produtoDetalhes').value = p.detalhes || '';
   document.getElementById('produtoPreco').value = p.preco;
   document.getElementById('produtoEstoque').value = p.estoque;
+  document.getElementById('produtoPrecoAntigo').value = p.precoAntigo == null ? '' : p.precoAntigo;
+  document.getElementById('produtoAPartirDe').checked = !!p.aPartirDe;
   document.getElementById('produtoEmoji').value = p.emoji || '';
   montarEscolhaDeCatalogos(p);
   prepararCamposFoto(p);
@@ -3153,6 +3193,13 @@ async function salvarProduto(){
     mostrarErro('erroProduto', 'Preencha nome, preço e estoque corretamente.');
     return;
   }
+  const textoPrecoAntigo = document.getElementById('produtoPrecoAntigo').value.trim();
+  const precoAntigo = textoPrecoAntigo === '' ? null : parseFloat(textoPrecoAntigo);
+  if(precoAntigo !== null && (isNaN(precoAntigo) || precoAntigo <= preco)){
+    mostrarErro('erroProduto', 'O preço antigo precisa ser maior que o preço atual (ou deixe em branco).');
+    return;
+  }
+  const aPartirDe = document.getElementById('produtoAPartirDe').checked;
 
   // resolve a foto antes de mexer no produto
   let dadosFoto = null;
@@ -3175,9 +3222,11 @@ async function salvarProduto(){
     produtoSalvo.detalhes = detalhes;
     produtoSalvo.preco = preco; produtoSalvo.estoque = estoque; produtoSalvo.emoji = emoji;
     produtoSalvo.catalogos = catalogosEscolhidos;
+    produtoSalvo.precoAntigo = precoAntigo; produtoSalvo.aPartirDe = aPartirDe;
     mostrarToast('Produto atualizado com sucesso!');
   }else{
     produtoSalvo = {id: gerarId(), nome, descricao, detalhes, preco, estoque, emoji,
+                    precoAntigo, aPartirDe,
                     catalogos: catalogosEscolhidos, imagem:'', imagemId:''};
     produtos.push(produtoSalvo);
     mostrarToast('Produto cadastrado com sucesso!');
