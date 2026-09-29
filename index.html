@@ -396,7 +396,7 @@
   <nav class="abas">
     <button class="aba-btn ativo" data-aba="loja">🛍️ Loja</button>
     <button class="aba-btn" data-aba="pedidos">📋 Meus Pedidos</button>
-    <button class="aba-btn" data-aba="admin">⚙️ Administração</button>
+    <button class="aba-btn" data-aba="admin" id="abaBtnAdmin" style="display:none;">⚙️ Administração</button>
   </nav>
 </header>
 
@@ -703,6 +703,11 @@
    catálogo muda — nunca a página já mexida na tela. */
 const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElement.outerHTML;
 /* ==================== CONFIG ==================== */
+/* Muda a cada publicação. Vai junto em toda notificação: quando um cliente
+   está com uma cópia antiga do site aberta (aba esquecida, cache do
+   celular), dá para ver isso na hora, em vez de caçar um defeito que já foi
+   corrigido. Notificação sem versão = cliente usando a versão antiga. */
+const VERSAO_LOJA = '2026-09-29.4';
 const SENHA_ADMIN = "admin123";
 const CHAVE_PIX = "106.459.049-70";
 const TITULAR_PIX = "João Eduardo Pompeo Neves";
@@ -839,8 +844,32 @@ document.querySelectorAll('.aba-btn').forEach(btn=>{
 });
 
 /* ==================== ÁREA DE CONTA (topo) ==================== */
+/* A aba Administração só aparece para o administrador logado. Esconder o
+   botão é só para não confundir os clientes: quem protege os dados de
+   verdade são as regras do banco, que recusam qualquer pedido de quem não
+   está na tabela admins, com ou sem aba na tela.
+   Reserva: abrir o site com #admin no endereço mostra a aba com o login. */
+function atualizarVisibilidadeAdmin(){
+  const botao = document.getElementById('abaBtnAdmin');
+  if(!botao) return;
+  const mostrar = adminLogado || location.hash === '#admin';
+  botao.style.display = mostrar ? '' : 'none';
+  if(!mostrar && document.getElementById('secao-admin').classList.contains('ativa')){
+    document.querySelector('.aba-btn[data-aba="loja"]').click();
+  }
+}
+window.addEventListener('hashchange', atualizarVisibilidadeAdmin);
+
 function renderizarAreaConta(){
   const area = document.getElementById('areaConta');
+  atualizarVisibilidadeAdmin();
+  if(adminLogado){
+    area.innerHTML = `
+      <span class="ola">Olá, <b>Administrador</b></span>
+      <button class="btn btn-outline btn-sm" onclick="logoutAdmin()">Sair</button>
+    `;
+    return;
+  }
   if(clienteLogado){
     area.innerHTML = `
       <span class="ola">Olá, <b>${escapeHtml(clienteLogado.nome.split(' ')[0])}</b></span>
@@ -883,6 +912,17 @@ async function fazerLoginCliente(){
       }else{
         mostrarErro('erroLogin', 'Não consegui entrar: ' + msg);
       }
+      return;
+    }
+    /* O administrador usa o mesmo botão "Entrar" dos clientes. Se a conta
+       estiver na tabela admins, o site entra no modo administração e a aba
+       aparece; senão, segue como cliente comum. */
+    if(await confirmarSeEhAdmin()){
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginSenha').value = '';
+      fecharModal('overlayLogin');
+      await ativarModoAdmin();
+      document.getElementById('abaBtnAdmin').click();
       return;
     }
     await entrarComoCliente(data.user, email);
@@ -1651,7 +1691,7 @@ async function registrarEvento(tipo, titulo, detalhe){
     const { error } = await bd.from('eventos').insert({
       tipo,
       titulo: String(titulo).slice(0, 120),
-      detalhe: String(detalhe || '').slice(0, 500),
+      detalhe: (String(detalhe || '').slice(0, 470) + ` · versão ${VERSAO_LOJA}`).slice(0, 500),
       cliente: clienteLogado
         ? `${clienteLogado.nome} (${clienteLogado.email})`.slice(0, 200)
         : 'Visitante não identificado',
@@ -1759,6 +1799,13 @@ async function entrarComoAdmin(){
     mostrarErro('erroAdmin', 'Esta conta existe, mas não é administradora da loja.');
     return;
   }
+  await ativarModoAdmin();
+}
+
+/* Tudo que acontece depois que o servidor confirma que a conta é de
+   administrador. Usado tanto pelo login da aba Administração quanto pelo
+   botão "Entrar" do topo. */
+async function ativarModoAdmin(){
   adminLogado = true;
   salvar('lv_sessao_admin', true);
   /* A sessão no servidor é uma só: entrar como administrador substitui
@@ -1817,6 +1864,7 @@ async function conectarBanco(){
     iniciarAtualizacaoAutomatica();
   }
   atualizarSeloBanco();
+  renderizarAreaConta();
   atualizarTelas();
   renderizarAdmin();
 }
@@ -2697,7 +2745,7 @@ function renderizarAdmin(){
 
   cont.innerHTML = `
     <div class="admin-topbar">
-      <h1>Administração</h1>
+      <h1>Administração <span style="font-size:12px;font-weight:600;color:var(--cinza-texto);">versão ${VERSAO_LOJA}</span></h1>
       <button class="btn btn-outline btn-sm" onclick="logoutAdmin()">Sair</button>
     </div>
     <div class="admin-abas">
@@ -2926,6 +2974,7 @@ async function logoutAdmin(){
     eventos = [];
     clientesBanco = [];
   }
+  renderizarAreaConta();
   renderizarAdmin();
   if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
   mostrarToast('Você saiu da administração.');
