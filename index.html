@@ -909,11 +909,18 @@ async function fazerLoginCliente(){
 /* Guarda a ficha de exibição do cliente. A senha nunca passa por aqui: ela
    fica com o Supabase Auth, que guarda apenas o hash. */
 async function salvarFichaCliente(userId, nome, email){
+  let erro = null;
   try{
     const { error } = await bd.from('clientes')
       .upsert({user_id: userId, nome: nome, email: email});
-    if(error) console.warn('[cliente] ficha', error);
-  }catch(e){ console.warn('[cliente] ficha', e); }
+    erro = error || null;
+  }catch(e){ erro = e; }
+  if(!erro) return;
+  console.warn('[cliente] ficha', erro);
+  /* Sem ficha, o cliente não aparece em "Contas cadastradas". O motivo vai
+     para as notificações, que o administrador enxerga. */
+  registrarEvento('conta_invalida', '⚠️ FALHA ao salvar a ficha do cliente',
+    `${nome} — ${email} — motivo: ${erro.message || String(erro)}`);
 }
 
 /* Monta a sessão do cliente a partir da conta autenticada. O nome vem da
@@ -1463,16 +1470,30 @@ async function carregarDoBanco(){
 /* Serve tanto para o admin quanto para o cliente: quem filtra é o banco.
    As regras de acesso devolvem todos os pedidos para o administrador e
    apenas os próprios para o cliente logado. */
-async function carregarPedidosDoBanco(){
+/* Último motivo de falha ao ler cada lista. As abas do administrador mostram
+   esse motivo em vez de uma lista vazia: "nenhum pedido" e "o banco recusou
+   a leitura" são situações bem diferentes e não podem parecer iguais. */
+let erroPedidosBanco = '';
+let erroClientesBanco = '';
+
+async function carregarPedidosDoBanco(silencioso){
   if(!bancoAtivo) return;
   if(!adminLogado && !clienteLogado) return;
   try{
     const { data, error } = await bd.from('pedidos')
       .select('*').order('criado_em', {ascending:false}).limit(500);
-    if(error){ avisarErroBanco(error, 'ler pedidos'); return; }
+    if(error){
+      erroPedidosBanco = error.message || String(error);
+      if(!silencioso) avisarErroBanco(error, 'ler pedidos');
+      return;
+    }
+    erroPedidosBanco = '';
     pedidos = (data || []).map(pedidoDoBanco);
     salvar('lv_pedidos', pedidos);
-  }catch(e){ avisarErroBanco(e, 'ler pedidos'); }
+  }catch(e){
+    erroPedidosBanco = e.message || String(e);
+    if(!silencioso) avisarErroBanco(e, 'ler pedidos');
+  }
 }
 
 /* ---- escrita ---- */
@@ -1540,14 +1561,84 @@ async function enviarFotoParaBanco(blob){
 }
 
 /* ---- lista de clientes (só o administrador enxerga) ---- */
-async function carregarClientesDoBanco(){
+async function carregarClientesDoBanco(silencioso){
   if(!bancoAtivo || !adminLogado) return;
   try{
     const { data, error } = await bd.from('clientes')
       .select('*').order('criado_em', {ascending:false}).limit(500);
-    if(error){ avisarErroBanco(error, 'ler clientes'); return; }
+    if(error){
+      erroClientesBanco = error.message || String(error);
+      if(!silencioso) avisarErroBanco(error, 'ler clientes');
+      return;
+    }
+    erroClientesBanco = '';
     clientesBanco = data || [];
-  }catch(e){ avisarErroBanco(e, 'ler clientes'); }
+  }catch(e){
+    erroClientesBanco = e.message || String(e);
+    if(!silencioso) avisarErroBanco(e, 'ler clientes');
+  }
+}
+
+/* ---- atualização automática do painel ----
+   O administrador deixa a aba aberta e os clientes compram e se cadastram
+   em outros aparelhos. Sem isto, pedidos e contas novos só apareciam depois
+   de sair e entrar de novo. A cada 15 segundos o painel busca as três listas
+   e avisa quando chega algo novo. Com a aba do navegador escondida, não
+   busca nada: não faz sentido gastar a cota do banco sem ninguém olhando. */
+const INTERVALO_PAINEL = 15000;
+let timerPainel = null;
+
+function iniciarAtualizacaoAutomatica(){
+  pararAtualizacaoAutomatica();
+  timerPainel = setInterval(atualizarPainelAdmin, INTERVALO_PAINEL);
+}
+function pararAtualizacaoAutomatica(){
+  if(timerPainel){ clearInterval(timerPainel); timerPainel = null; }
+}
+
+async function atualizarPainelAdmin(){
+  if(!bancoAtivo || !adminLogado || document.hidden) return;
+  const pedidosAntes = new Set(pedidos.map(p => String(p.id)));
+  const clientesAntes = new Set(clientesBanco.map(c => String(c.user_id)));
+  const naoLidasAntes = contarNaoLidas();
+  const errosAntes = erroPedidosBanco + '|' + erroClientesBanco;
+
+  await Promise.all([
+    carregarEventos(true), carregarPedidosDoBanco(true), carregarClientesDoBanco(true)
+  ]);
+
+  const pedidosNovos = pedidos.filter(p => !pedidosAntes.has(String(p.id)));
+  const clientesNovos = clientesBanco.filter(c => !clientesAntes.has(String(c.user_id)));
+  if(pedidosNovos.length){
+    mostrarToast(pedidosNovos.length === 1
+      ? `🛍️ Novo pedido: ${pedidosNovos[0].numero} — ${pedidosNovos[0].clienteNome}`
+      : `🛍️ ${pedidosNovos.length} pedidos novos!`);
+  }else if(clientesNovos.length){
+    mostrarToast(clientesNovos.length === 1
+      ? `👤 Nova conta: ${clientesNovos[0].nome}`
+      : `👤 ${clientesNovos.length} contas novas!`);
+  }
+
+  /* Só redesenha se algo mudou, para não piscar a tela à toa. */
+  const mudou = pedidosNovos.length || clientesNovos.length
+    || contarNaoLidas() !== naoLidasAntes
+    || (erroPedidosBanco + '|' + erroClientesBanco) !== errosAntes;
+  if(mudou){
+    renderizarAdmin();
+    if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
+  }
+}
+
+/* Caixa vermelha que explica por que uma lista não pôde ser lida. */
+function avisoFalhaLeitura(motivo, oQue){
+  return `
+    <div style="background:#fdeaea;color:var(--vermelho-escuro);padding:12px 14px;
+                border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.55;">
+      <b>O banco não deixou ler ${oQue}.</b><br>
+      Motivo informado pelo Supabase: <code>${escapeHtml(motivo)}</code><br>
+      Quase sempre isso quer dizer que a versão mais nova do arquivo
+      <b>supabase/schema.sql</b> ainda não foi rodada no <b>SQL Editor</b>.
+    </div>`;
 }
 
 /* ---- notificações do administrador ----
@@ -1570,14 +1661,14 @@ async function registrarEvento(tipo, titulo, detalhe){
   }catch(e){ console.warn('[notificação]', e); }
 }
 
-async function carregarEventos(){
+async function carregarEventos(silencioso){
   if(!bancoAtivo || !adminLogado) return;
   try{
     const { data, error } = await bd.from('eventos')
       .select('*').order('criado_em', {ascending:false}).limit(200);
-    if(error){ avisarErroBanco(error, 'ler notificações'); return; }
+    if(error){ if(!silencioso) avisarErroBanco(error, 'ler notificações'); return; }
     eventos = data || [];
-  }catch(e){ avisarErroBanco(e, 'ler notificações'); }
+  }catch(e){ if(!silencioso) avisarErroBanco(e, 'ler notificações'); }
 }
 
 function contarNaoLidas(){
@@ -1681,6 +1772,7 @@ async function entrarComoAdmin(){
   await carregarClientesDoBanco();
   renderizarAdmin();
   renderizarPedidos();
+  iniciarAtualizacaoAutomatica();
   mostrarToast('Bem-vindo(a) à administração! 🔐');
 }
 
@@ -1720,7 +1812,10 @@ async function conectarBanco(){
     }
   }catch(e){ console.warn('[banco] sessão', e); }
   await carregarDoBanco();
-  if(adminLogado) await carregarPedidosDoBanco();
+  if(adminLogado){
+    await carregarPedidosDoBanco();
+    iniciarAtualizacaoAutomatica();
+  }
   atualizarSeloBanco();
   atualizarTelas();
   renderizarAdmin();
@@ -1974,12 +2069,6 @@ function renderizarLoja(){
           <div class="nome">${escapeHtml(p.nome)}</div>
           <div class="desc${descLonga ? ' truncada' : ''}">${escapeHtml(desc)}</div>
           ${descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
-          <div class="preco">${formatarPreco(p.preco)}</div>
-          <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
-          <div class="acoes">
-            <button class="btn btn-primario btn-full" ${p.estoque===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}
-              onclick="adicionarAoCarrinho(${p.id})">
-              ${p.estoque===0 ? 'Indisponível{descLonga ? `<button class="ver-mais" onclick="verDetalhesProduto(${p.id})">ver mais</button>` : ''}
           <div class="preco">${formatarPreco(p.preco)}</div>
           <div class="estoque ${estoqueClasse}">${estoqueTxt}</div>
           <div class="acoes">
@@ -2627,6 +2716,9 @@ function renderizarAdmin(){
 function mudarAbaAdmin(aba){
   abaAdminAtiva = aba;
   renderizarAdmin();
+  /* Abrir uma aba é sinal de que o administrador quer ver o estado atual:
+     busca na hora, sem esperar a próxima rodada automática. */
+  atualizarPainelAdmin();
 }
 
 function renderizarSubAbaAdmin(){
@@ -2699,11 +2791,17 @@ function renderizarSubAbaAdmin(){
       </div>`}
     `;
   } else if(abaAdminAtiva === 'pedidos'){
+    const topo = (bancoAtivo ? `
+      <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:12.5px;color:var(--cinza-texto);">Atualiza sozinho a cada 15 segundos.</div>
+        <button class="btn btn-secundario" onclick="atualizarNotificacoes()">🔄 Atualizar</button>
+      </div>` : '')
+      + (erroPedidosBanco ? avisoFalhaLeitura(erroPedidosBanco, 'os pedidos') : '');
     if(pedidos.length === 0){
-      cont.innerHTML = `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
+      cont.innerHTML = topo + `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
       return;
     }
-    cont.innerHTML = ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
+    cont.innerHTML = topo + ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
   } else if(abaAdminAtiva === 'contas'){
     /* Com banco, as contas são de verdade e vêm do servidor. Sem banco, a
        lista local só enxerga quem se cadastrou neste mesmo navegador. */
@@ -2711,9 +2809,10 @@ function renderizarSubAbaAdmin(){
       ? clientesBanco.map(c => ({id: c.user_id, nome: c.nome, email: c.email, dataCadastro: c.criado_em}))
       : [...contas];
     const topo = bancoAtivo
-      ? `<div style="margin-bottom:14px;display:flex;justify-content:flex-end;">
+      ? `<div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+           <div style="font-size:12.5px;color:var(--cinza-texto);">Atualiza sozinho a cada 15 segundos.</div>
            <button class="btn btn-secundario" onclick="atualizarClientes()">🔄 Atualizar</button>
-         </div>`
+         </div>` + (erroClientesBanco ? avisoFalhaLeitura(erroClientesBanco, 'as contas cadastradas') : '')
       : `<div style="background:#fff4e0;color:#8a6400;padding:11px 14px;border-radius:8px;
                      font-size:13px;margin-bottom:14px;line-height:1.5;">
            Sem banco de dados configurado, esta lista mostra apenas quem se
@@ -2816,6 +2915,7 @@ function loginAdmin(){
 }
 
 async function logoutAdmin(){
+  pararAtualizacaoAutomatica();
   adminLogado = false;
   localStorage.removeItem('lv_sessao_admin');
   if(bancoAtivo){
@@ -2930,4 +3030,28 @@ function excluirProduto(id){
     function(){
       produtos = produtos.filter(p => p.id !== id);
       salvar('lv_produtos', produtos);
-      bdExcluirProduto(
+      bdExcluirProduto(id);
+      apagarImagemGuardada(prod.imagemId);
+      atualizarTelas();
+      mostrarToast('Produto excluído.');
+      publicarCatalogo();
+    },
+    'Sim, excluir',
+    '🗑️'
+  );
+}
+
+/* ==================== INICIALIZAÇÃO ==================== */
+function iniciar(){
+  renderizarAreaConta();
+  renderizarLoja();
+  atualizarBadgeCarrinho();
+  conectarArmazemFotos();
+  conectarPublicador();
+  carregarCatalogoDoArquivo();
+  conectarBanco();
+}
+iniciar();
+</script>
+</body>
+</html>
