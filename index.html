@@ -275,6 +275,27 @@
   .campo input:focus, .campo textarea:focus, .campo select:focus{
     outline:none;border-color:var(--vermelho);
   }
+  /* EDITOR DE DESCRIÇÃO (negrito, listas, link) */
+  .editor-rico{border:1.5px solid var(--cinza-borda);border-radius:8px;overflow:hidden;background:#fff;}
+  .editor-rico:focus-within{border-color:var(--vermelho);}
+  .editor-barra{
+    display:flex;align-items:center;gap:2px;padding:5px 6px;flex-wrap:wrap;
+    background:var(--cinza-fundo);border-bottom:1px solid var(--cinza-borda);
+  }
+  .editor-barra button{
+    min-width:30px;height:28px;padding:0 6px;border:none;border-radius:6px;
+    background:none;cursor:pointer;font-size:14px;color:var(--preto);font-family:inherit;
+  }
+  .editor-barra button:hover{background:#e4e4e7;}
+  .editor-sep{width:1px;height:18px;background:var(--cinza-borda);margin:0 4px;}
+  .editor-area{
+    min-height:90px;max-height:260px;overflow-y:auto;padding:10px 12px;
+    font-size:14px;line-height:1.5;outline:none;
+  }
+  .editor-area:empty::before{content:attr(data-placeholder);color:#a0a0a6;}
+  .editor-area ul, .editor-area ol, .texto-rico ul, .texto-rico ol{padding-left:22px;margin:4px 0;}
+  .editor-area a, .texto-rico a{color:var(--vermelho);}
+  .texto-rico{font-size:14px;line-height:1.6;color:var(--preto);}
   .linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .erro-msg{
     background:#fdeaea;color:var(--vermelho-escuro);padding:10px 12px;
@@ -580,7 +601,21 @@
     </div>
     <div class="campo">
       <label>Descrição</label>
-      <textarea id="produtoDesc" rows="2" placeholder="Breve descrição do produto"></textarea>
+      <div class="editor-rico">
+        <div class="editor-barra">
+          <button type="button" title="Negrito" data-cmd="bold"><b>B</b></button>
+          <button type="button" title="Itálico" data-cmd="italic"><i>I</i></button>
+          <button type="button" title="Sublinhado" data-cmd="underline"><u>U</u></button>
+          <span class="editor-sep"></span>
+          <button type="button" title="Lista com marcadores" data-cmd="insertUnorderedList">•≡</button>
+          <button type="button" title="Lista numerada" data-cmd="insertOrderedList">1≡</button>
+          <span class="editor-sep"></span>
+          <button type="button" title="Inserir link" data-cmd="link">🔗</button>
+          <button type="button" title="Limpar formatação" data-cmd="limpar"><s>T</s>ₓ</button>
+        </div>
+        <div id="produtoDesc" class="editor-area" contenteditable="true"
+             data-placeholder="Breve descrição do produto"></div>
+      </div>
     </div>
     <div class="campo">
       <label>Observação <span style="font-weight:400;color:var(--cinza-texto);">(aparece em "Ver detalhes")</span></label>
@@ -707,7 +742,7 @@ const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElemen
    está com uma cópia antiga do site aberta (aba esquecida, cache do
    celular), dá para ver isso na hora, em vez de caçar um defeito que já foi
    corrigido. Notificação sem versão = cliente usando a versão antiga. */
-const VERSAO_LOJA = '2026-09-29.4';
+const VERSAO_LOJA = '2026-09-29.5';
 const SENHA_ADMIN = "admin123";
 const CHAVE_PIX = "106.459.049-70";
 const TITULAR_PIX = "João Eduardo Pompeo Neves";
@@ -2035,6 +2070,97 @@ function temDetalhes(p){
   return String(p.detalhes || '').trim() !== '';
 }
 
+/* ==================== DESCRIÇÃO COM FORMATAÇÃO ====================
+   A descrição agora pode ter negrito, itálico, sublinhado, listas e links,
+   e por isso é guardada como HTML. Esse HTML volta para a tela de todos os
+   clientes, então passa SEMPRE por uma lista branca: só as marcações abaixo
+   sobrevivem, sem nenhum atributo além do href de links http(s)/mailto.
+   Qualquer outra coisa (script, onerror, style, iframe...) é descartada e
+   só o texto de dentro fica. É isso que mantém a proteção contra XSS.
+   Descrições antigas, em texto puro, continuam funcionando. */
+const TAGS_DESCRICAO = {B:'b', STRONG:'b', I:'i', EM:'i', U:'u',
+  UL:'ul', OL:'ol', LI:'li', A:'a', BR:'br', P:'p', DIV:'div'};
+
+function limparHtmlDescricao(html){
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  function copiar(origem, destino){
+    origem.childNodes.forEach(n => {
+      if(n.nodeType === 3){ destino.appendChild(document.createTextNode(n.nodeValue)); return; }
+      if(n.nodeType !== 1 || n.tagName === 'SCRIPT' || n.tagName === 'STYLE') return;
+      const tag = TAGS_DESCRICAO[n.tagName];
+      if(!tag){ copiar(n, destino); return; }
+      const el = document.createElement(tag);
+      if(tag === 'a'){
+        const href = (n.getAttribute('href') || '').trim();
+        if(!/^(https?:|mailto:)/i.test(href)){ copiar(n, destino); return; }
+        el.setAttribute('href', href);
+        el.setAttribute('target', '_blank');
+        el.setAttribute('rel', 'noopener noreferrer');
+      }
+      copiar(n, el);
+      destino.appendChild(el);
+    });
+  }
+  const saida = document.createElement('div');
+  copiar(doc.body, saida);
+  return saida.innerHTML;
+}
+
+function descricaoEhHtml(desc){
+  return /<[a-z][\s\S]*>/i.test(String(desc || ''));
+}
+
+/* Para mostrar formatado (janela de detalhes e editor). */
+function descricaoParaHtml(desc){
+  return descricaoEhHtml(desc)
+    ? limparHtmlDescricao(desc)
+    : escapeHtml(String(desc || '')).replace(/\n/g, '<br>');
+}
+
+/* Para o card da vitrine, que mostra só 3 linhas de texto corrido. */
+function descricaoTextoPuro(desc){
+  if(!descricaoEhHtml(desc)) return String(desc || '');
+  const doc = new DOMParser().parseFromString(String(desc), 'text/html');
+  doc.querySelectorAll('br, li, p, div').forEach(el => el.after(' '));
+  return (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+/* Barra de ferramentas do editor. O mousedown é cancelado para o clique no
+   botão não tirar a seleção do texto que vai ser formatado. */
+(function(){
+  const barra = document.querySelector('.editor-barra');
+  const area = document.getElementById('produtoDesc');
+  if(!barra || !area) return;
+  barra.addEventListener('mousedown', e => {
+    if(e.target.closest('button')) e.preventDefault();
+  });
+  barra.addEventListener('click', e => {
+    const botao = e.target.closest('button');
+    if(!botao) return;
+    area.focus();
+    const cmd = botao.dataset.cmd;
+    if(cmd === 'link'){
+      let url = window.prompt('Endereço do link (ex.: https://site.com):', 'https://');
+      if(!url) return;
+      url = url.trim();
+      if(!/^(https?:|mailto:)/i.test(url)) url = 'https://' + url;
+      document.execCommand('createLink', false, url);
+    }else if(cmd === 'limpar'){
+      document.execCommand('removeFormat');
+      document.execCommand('unlink');
+    }else{
+      document.execCommand(cmd);
+    }
+  });
+  /* Colar entra como texto simples: texto copiado de sites e do Word traz
+     fontes, cores e tamanhos que bagunçariam o card. */
+  area.addEventListener('paste', e => {
+    e.preventDefault();
+    const texto = (e.clipboardData || window.clipboardData).getData('text/plain');
+    document.execCommand('insertText', false, texto);
+  });
+})();
+
 function verDetalhesProduto(id){
   const p = produtos.find(pr => String(pr.id) === String(id));
   if(!p) return;
@@ -2054,7 +2180,7 @@ function verDetalhesProduto(id){
     html += `
       <div class="detalhes-secao">
         <h3>Descrição</h3>
-        <div class="detalhes-produto">${escapeHtml(descricao)}</div>
+        <div class="texto-rico">${descricaoParaHtml(descricao)}</div>
       </div>`;
   }
 
@@ -2102,7 +2228,7 @@ function renderizarLoja(){
     return;
   }
   grid.innerHTML = lista.map(p => {
-    const desc = p.descricao || '';
+    const desc = descricaoTextoPuro(p.descricao);
     /* 130 caracteres é mais ou menos o que cabe em 3 linhas do card. Abaixo
        disso o texto não seria cortado e o botão só poluiria. */
     const descLonga = desc.length > 130;
@@ -2985,7 +3111,7 @@ function abrirModalNovoProduto(){
   document.getElementById('tituloModalProduto').textContent = 'Novo produto';
   document.getElementById('produtoId').value = '';
   document.getElementById('produtoNome').value = '';
-  document.getElementById('produtoDesc').value = '';
+  document.getElementById('produtoDesc').innerHTML = '';
   document.getElementById('produtoDetalhes').value = '';
   document.getElementById('produtoPreco').value = '';
   document.getElementById('produtoEstoque').value = '';
@@ -3002,7 +3128,7 @@ function editarProduto(id){
   document.getElementById('tituloModalProduto').textContent = 'Editar produto';
   document.getElementById('produtoId').value = p.id;
   document.getElementById('produtoNome').value = p.nome;
-  document.getElementById('produtoDesc').value = p.descricao || '';
+  document.getElementById('produtoDesc').innerHTML = descricaoParaHtml(p.descricao);
   document.getElementById('produtoDetalhes').value = p.detalhes || '';
   document.getElementById('produtoPreco').value = p.preco;
   document.getElementById('produtoEstoque').value = p.estoque;
@@ -3016,7 +3142,8 @@ function editarProduto(id){
 async function salvarProduto(){
   const id = document.getElementById('produtoId').value;
   const nome = document.getElementById('produtoNome').value.trim();
-  const descricao = document.getElementById('produtoDesc').value.trim();
+  const editorDesc = document.getElementById('produtoDesc');
+  const descricao = editorDesc.textContent.trim() ? limparHtmlDescricao(editorDesc.innerHTML) : '';
   const detalhes = document.getElementById('produtoDetalhes').value.trim();
   const preco = parseFloat(document.getElementById('produtoPreco').value);
   const estoque = parseInt(document.getElementById('produtoEstoque').value);
