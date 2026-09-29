@@ -172,6 +172,44 @@
   .card-produto .estoque.baixo{color:#b8860b;}
   .card-produto .estoque.zero{color:var(--vermelho);font-weight:700;}
   .card-produto .acoes{display:flex;flex-direction:column;gap:8px;margin-top:2px;}
+
+  /* CARTÃO HOLOGRÁFICO
+     A inclinação e o brilho seguem o ponteiro através das variáveis --mx/--my
+     (posição dentro do card) e --rx/--ry (ângulos), que o JS atualiza. */
+  .grid-produtos{perspective:1100px;}
+  .card-produto{position:relative;transition:transform .3s ease, box-shadow .3s ease;}
+  .card-produto.holo{
+    transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+    box-shadow:0 16px 32px rgba(0,0,0,.18);
+    /* Durante o movimento a transição precisa ser curta, senão o card
+       "persegue" o cursor com atraso. */
+    transition:transform .07s linear, box-shadow .3s ease;
+    z-index:2;
+  }
+  .card-produto::after{
+    content:'';position:absolute;inset:0;border-radius:12px;
+    pointer-events:none;opacity:0;transition:opacity .3s ease;
+    background:
+      radial-gradient(circle at var(--mx,50%) var(--my,50%),
+        rgba(255,255,255,.42), rgba(255,255,255,0) 40%),
+      linear-gradient(115deg,
+        rgba(255,0,140,.24) 12%, rgba(0,214,255,.24) 34%,
+        rgba(120,255,140,.24) 52%, rgba(255,220,0,.24) 70%,
+        rgba(180,0,255,.24) 88%);
+    /* A faixa colorida é bem maior que o card e usa --gx/--gy, que varrem
+       uma faixa maior que 0–100%. É isso que faz as cores correrem bastante
+       com um movimento pequeno do ponteiro. */
+    background-size:180% 180%, 320% 320%;
+    background-position:0 0, var(--gx,50%) var(--gy,50%);
+    mix-blend-mode:overlay;
+  }
+  .card-produto.holo::after{opacity:1;}
+  /* Quem configurou o sistema para reduzir animações não recebe nem a
+     inclinação nem o brilho. */
+  @media (prefers-reduced-motion: reduce){
+    .card-produto, .card-produto.holo{transition:none;transform:none;}
+    .card-produto::after{display:none;}
+  }
   /* O texto de detalhes é digitado num textarea: white-space preserva as
      quebras de linha que a pessoa escreveu, sem precisar de HTML. */
   .detalhes-produto{
@@ -725,6 +763,11 @@ let catalogoAtivo = 'todos';
    navegador do visitante e lidos pelo do dono da loja. */
 let eventos = [];
 
+/* Fichas dos clientes vindas do banco. Substituem a lista local `contas`
+   quando o banco está ativo — as contas locais só existem no modo
+   demonstração, presas ao navegador de quem se cadastrou. */
+let clientesBanco = [];
+
 let pedidos = carregar('lv_pedidos', []);
 let historicoCancelamentos = carregar('lv_historico_cancelamentos', []);
 let contas = carregar('lv_contas', []);
@@ -821,25 +864,84 @@ function abrirCadastroCliente(){ limparErros(); abrirModal('overlayCadastro'); }
 function trocarParaCadastro(){ fecharModal('overlayLogin'); abrirCadastroCliente(); }
 function trocarParaLogin(){ fecharModal('overlayCadastro'); abrirLoginCliente(); }
 
-function fazerLoginCliente(){
+async function fazerLoginCliente(){
   const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const senha = document.getElementById('loginSenha').value;
   if(!email || !senha){
     mostrarErro('erroLogin', 'Preencha e-mail e senha.');
     return;
   }
-  const conta = contas.find(c => c.email.toLowerCase() === email && c.senha === senha);
-  if(!conta){
-    mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
-    return;
+
+  if(bancoAtivo){
+    const { data, error } = await bd.auth.signInWithPassword({email, password: senha});
+    if(error){
+      const msg = error.message || '';
+      if(/email not confirmed/i.test(msg)){
+        mostrarErro('erroLogin', 'Confirme o e-mail que enviamos antes de entrar.');
+      }else if(/invalid login credentials/i.test(msg)){
+        mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
+      }else{
+        mostrarErro('erroLogin', 'Não consegui entrar: ' + msg);
+      }
+      return;
+    }
+    await entrarComoCliente(data.user, email);
+  }else{
+    /* Modo demonstração, sem banco: a conta existe só neste navegador. */
+    const conta = contas.find(c => c.email.toLowerCase() === email && c.senha === senha);
+    if(!conta){
+      mostrarErro('erroLogin', 'E-mail ou senha incorretos.');
+      return;
+    }
+    clienteLogado = {id: conta.id, nome: conta.nome, email: conta.email};
+    salvar('lv_sessao_cliente', clienteLogado);
   }
-  clienteLogado = {id: conta.id, nome: conta.nome, email: conta.email};
-  salvar('lv_sessao_cliente', clienteLogado);
+
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginSenha').value = '';
   fecharModal('overlayLogin');
   renderizarAreaConta();
+  await carregarPedidosDoBanco();
+  renderizarPedidos();
   mostrarToast('Login realizado com sucesso! 👋');
+}
+
+/* Guarda a ficha de exibição do cliente. A senha nunca passa por aqui: ela
+   fica com o Supabase Auth, que guarda apenas o hash. */
+async function salvarFichaCliente(userId, nome, email){
+  let erro = null;
+  try{
+    const { error } = await bd.from('clientes')
+      .upsert({user_id: userId, nome: nome, email: email});
+    erro = error || null;
+  }catch(e){ erro = e; }
+  if(!erro) return;
+  console.warn('[cliente] ficha', erro);
+  /* Sem ficha, o cliente não aparece em "Contas cadastradas". O motivo vai
+     para as notificações, que o administrador enxerga. */
+  registrarEvento('conta_invalida', '⚠️ FALHA ao salvar a ficha do cliente',
+    `${nome} — ${email} — motivo: ${erro.message || String(erro)}`);
+}
+
+/* Monta a sessão do cliente a partir da conta autenticada. O nome vem da
+   ficha; se ela ainda não existir, usa o que o Auth guardou no cadastro. */
+async function entrarComoCliente(user, emailFallback){
+  let nome = '';
+  try{
+    const { data } = await bd.from('clientes')
+      .select('nome').eq('user_id', user.id).maybeSingle();
+    if(data && data.nome) nome = data.nome;
+  }catch(e){ console.warn('[cliente] ficha', e); }
+  const email = user.email || emailFallback;
+  if(!nome){
+    /* Ficha ainda não existe: acontece quando o projeto exige confirmação por
+       e-mail, já que no cadastro não havia sessão para gravá-la. Cria agora,
+       senão o cliente nunca apareceria na lista do administrador. */
+    nome = (user.user_metadata && user.user_metadata.nome) || email;
+    await salvarFichaCliente(user.id, nome, email);
+  }
+  clienteLogado = {id: user.id, nome: nome, email: email};
+  salvar('lv_sessao_cliente', clienteLogado);
 }
 
 /* Confere o FORMATO do e-mail: algo antes do @, algo depois, e um ponto com
@@ -849,7 +951,7 @@ function emailValido(email){
   return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(String(email || '').trim());
 }
 
-function criarConta(){
+async function criarConta(){
   const nome = document.getElementById('cadNome').value.trim();
   const email = document.getElementById('cadEmail').value.trim().toLowerCase();
   const senha = document.getElementById('cadSenha').value;
@@ -863,6 +965,19 @@ function criarConta(){
       `Nome informado: ${nome} — e-mail recusado: ${email}`);
     return;
   }
+
+  /* Com banco, a conta vira uma conta de verdade no Supabase Auth: a senha
+     é guardada como hash no servidor e a pessoa entra de qualquer aparelho.
+     O mínimo de 6 caracteres é exigência do próprio Supabase. */
+  if(bancoAtivo){
+    if(senha.length < 6){
+      mostrarErro('erroCadastro', 'A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    await criarContaNoBanco(nome, email, senha);
+    return;
+  }
+
   if(senha.length < 4){
     mostrarErro('erroCadastro', 'A senha deve ter no mínimo 4 caracteres.');
     return;
@@ -892,8 +1007,57 @@ function criarConta(){
   if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
 }
 
-function sairCliente(){
+async function criarContaNoBanco(nome, email, senha){
+  const { data, error } = await bd.auth.signUp({
+    email, password: senha, options: {data: {nome}}
+  });
+  if(error){
+    const msg = error.message || '';
+    /* Mesmo raciocínio do pedido: o cadastro falha no aparelho do cliente e
+       o dono da loja precisa saber o motivo. */
+    registrarEvento('conta_invalida', '⚠️ FALHA ao criar conta',
+      `${nome} — ${email} — motivo: ${msg}`);
+    if(/already registered|already exists|user already/i.test(msg)){
+      mostrarErro('erroCadastro', 'Já existe uma conta com este e-mail.');
+    }else if(/password/i.test(msg)){
+      mostrarErro('erroCadastro', 'Senha muito fraca. Use ao menos 6 caracteres.');
+    }else{
+      mostrarErro('erroCadastro', 'Não consegui criar a conta: ' + msg);
+    }
+    return;
+  }
+
+  document.getElementById('cadNome').value = '';
+  document.getElementById('cadEmail').value = '';
+  document.getElementById('cadSenha').value = '';
+  fecharModal('overlayCadastro');
+
+  /* Sem sessão na resposta, o projeto exige confirmação por e-mail: a conta
+     existe, mas só vale depois que a pessoa clicar no link. */
+  if(!data.session){
+    registrarEvento('conta', 'Nova conta criada (aguardando confirmação)', `${nome} — ${email}`);
+    mostrarToast('Conta criada! Confirme o e-mail que enviamos para entrar.');
+    return;
+  }
+
+  await salvarFichaCliente(data.user.id, nome, email);
+  clienteLogado = {id: data.user.id, nome, email};
+  salvar('lv_sessao_cliente', clienteLogado);
+  renderizarAreaConta();
+  registrarEvento('conta', 'Nova conta criada', `${nome} — ${email}`);
+  mostrarToast('Conta criada com sucesso! 🎉');
+  if(document.getElementById('secao-admin').classList.contains('ativa')) renderizarAdmin();
+}
+
+async function sairCliente(){
+  if(bancoAtivo){
+    try{ await bd.auth.signOut(); }catch(e){ console.warn('[cliente] sair', e); }
+  }
   clienteLogado = null;
+  /* Com banco, a lista de pedidos na tela era a do cliente que saiu: manter
+     na memória mostraria os pedidos dele para quem entrar depois. No modo
+     demonstração os pedidos são locais e não podem ser descartados. */
+  if(bancoAtivo) pedidos = [];
   localStorage.removeItem('lv_sessao_cliente');
   renderizarAreaConta();
   renderizarPedidos();
@@ -1266,7 +1430,7 @@ function pedidoDoBanco(r){
     id: Number(r.id), numero: r.numero, data: r.criado_em,
     clienteNome: r.cliente_nome, clienteEmail: r.cliente_email,
     clienteCep: r.cliente_cep || '', tipoRecebimento: r.tipo_recebimento,
-    clienteContaId: null, metodoPagamento: r.metodo_pagamento,
+    clienteContaId: r.cliente_id || null, metodoPagamento: r.metodo_pagamento,
     itens: Array.isArray(r.itens) ? r.itens : [],
     total: Number(r.total), status: r.status
   };
@@ -1276,6 +1440,7 @@ function pedidoParaBanco(ped){
     id: ped.id, numero: ped.numero, criado_em: ped.data,
     cliente_nome: ped.clienteNome, cliente_email: ped.clienteEmail,
     cliente_cep: ped.clienteCep || '', tipo_recebimento: ped.tipoRecebimento,
+    cliente_id: ped.clienteContaId || null,
     metodo_pagamento: ped.metodoPagamento, itens: ped.itens,
     total: ped.total, status: ped.status
   };
@@ -1302,15 +1467,33 @@ async function carregarDoBanco(){
   }catch(e){ avisarErroBanco(e, 'leitura'); }
 }
 
-async function carregarPedidosDoBanco(){
-  if(!bancoAtivo || !adminLogado) return;
+/* Serve tanto para o admin quanto para o cliente: quem filtra é o banco.
+   As regras de acesso devolvem todos os pedidos para o administrador e
+   apenas os próprios para o cliente logado. */
+/* Último motivo de falha ao ler cada lista. As abas do administrador mostram
+   esse motivo em vez de uma lista vazia: "nenhum pedido" e "o banco recusou
+   a leitura" são situações bem diferentes e não podem parecer iguais. */
+let erroPedidosBanco = '';
+let erroClientesBanco = '';
+
+async function carregarPedidosDoBanco(silencioso){
+  if(!bancoAtivo) return;
+  if(!adminLogado && !clienteLogado) return;
   try{
     const { data, error } = await bd.from('pedidos')
       .select('*').order('criado_em', {ascending:false}).limit(500);
-    if(error){ avisarErroBanco(error, 'ler pedidos'); return; }
+    if(error){
+      erroPedidosBanco = error.message || String(error);
+      if(!silencioso) avisarErroBanco(error, 'ler pedidos');
+      return;
+    }
+    erroPedidosBanco = '';
     pedidos = (data || []).map(pedidoDoBanco);
     salvar('lv_pedidos', pedidos);
-  }catch(e){ avisarErroBanco(e, 'ler pedidos'); }
+  }catch(e){
+    erroPedidosBanco = e.message || String(e);
+    if(!silencioso) avisarErroBanco(e, 'ler pedidos');
+  }
 }
 
 /* ---- escrita ---- */
@@ -1335,6 +1518,29 @@ async function bdExcluirCatalogo(id, produtosAfetados){
   if(error){ avisarErroBanco(error, 'excluir catálogo'); return; }
   for(const p of produtosAfetados){ await bdSalvarProduto(p); }
 }
+/* Registro de um pedido NOVO. Usa insert, não upsert: o visitante só tem
+   permissão para criar pedidos, não para alterar existentes, e o upsert
+   pode ser recusado pelas regras de acesso. Devolve true se gravou. */
+async function bdCriarPedido(ped){
+  if(!bancoAtivo) return true;
+  let erro = null;
+  try{
+    const { error } = await bd.from('pedidos').insert(pedidoParaBanco(ped));
+    erro = error || null;
+  }catch(e){ erro = e; }
+  if(!erro) return true;
+  console.warn('[banco] criar pedido', erro);
+  /* Um pedido perdido é o pior defeito de uma loja, e acontece no aparelho
+     do cliente, onde o dono não enxerga o console. Então o motivo técnico
+     vai para as notificações do administrador. Usa o tipo "pagamento", que
+     é aceito desde a primeira versão do banco, para o aviso chegar mesmo
+     que o schema.sql mais novo ainda não tenha sido aplicado. */
+  registrarEvento('pagamento', '⚠️ FALHA ao registrar pedido',
+    `${ped.numero} — ${ped.clienteNome} (${ped.clienteEmail}) — total ${formatarPreco(ped.total)} — ` +
+    `motivo: ${(erro.message || String(erro))}${erro.code ? ' [' + erro.code + ']' : ''}`);
+  return false;
+}
+
 async function bdSalvarPedido(ped){
   if(!bancoAtivo) return;
   const { error } = await bd.from('pedidos').upsert(pedidoParaBanco(ped));
@@ -1352,6 +1558,87 @@ async function enviarFotoParaBanco(blob){
   if(error) throw error;
   const { data } = bd.storage.from('fotos').getPublicUrl(nome);
   return data.publicUrl;
+}
+
+/* ---- lista de clientes (só o administrador enxerga) ---- */
+async function carregarClientesDoBanco(silencioso){
+  if(!bancoAtivo || !adminLogado) return;
+  try{
+    const { data, error } = await bd.from('clientes')
+      .select('*').order('criado_em', {ascending:false}).limit(500);
+    if(error){
+      erroClientesBanco = error.message || String(error);
+      if(!silencioso) avisarErroBanco(error, 'ler clientes');
+      return;
+    }
+    erroClientesBanco = '';
+    clientesBanco = data || [];
+  }catch(e){
+    erroClientesBanco = e.message || String(e);
+    if(!silencioso) avisarErroBanco(e, 'ler clientes');
+  }
+}
+
+/* ---- atualização automática do painel ----
+   O administrador deixa a aba aberta e os clientes compram e se cadastram
+   em outros aparelhos. Sem isto, pedidos e contas novos só apareciam depois
+   de sair e entrar de novo. A cada 15 segundos o painel busca as três listas
+   e avisa quando chega algo novo. Com a aba do navegador escondida, não
+   busca nada: não faz sentido gastar a cota do banco sem ninguém olhando. */
+const INTERVALO_PAINEL = 15000;
+let timerPainel = null;
+
+function iniciarAtualizacaoAutomatica(){
+  pararAtualizacaoAutomatica();
+  timerPainel = setInterval(atualizarPainelAdmin, INTERVALO_PAINEL);
+}
+function pararAtualizacaoAutomatica(){
+  if(timerPainel){ clearInterval(timerPainel); timerPainel = null; }
+}
+
+async function atualizarPainelAdmin(){
+  if(!bancoAtivo || !adminLogado || document.hidden) return;
+  const pedidosAntes = new Set(pedidos.map(p => String(p.id)));
+  const clientesAntes = new Set(clientesBanco.map(c => String(c.user_id)));
+  const naoLidasAntes = contarNaoLidas();
+  const errosAntes = erroPedidosBanco + '|' + erroClientesBanco;
+
+  await Promise.all([
+    carregarEventos(true), carregarPedidosDoBanco(true), carregarClientesDoBanco(true)
+  ]);
+
+  const pedidosNovos = pedidos.filter(p => !pedidosAntes.has(String(p.id)));
+  const clientesNovos = clientesBanco.filter(c => !clientesAntes.has(String(c.user_id)));
+  if(pedidosNovos.length){
+    mostrarToast(pedidosNovos.length === 1
+      ? `🛍️ Novo pedido: ${pedidosNovos[0].numero} — ${pedidosNovos[0].clienteNome}`
+      : `🛍️ ${pedidosNovos.length} pedidos novos!`);
+  }else if(clientesNovos.length){
+    mostrarToast(clientesNovos.length === 1
+      ? `👤 Nova conta: ${clientesNovos[0].nome}`
+      : `👤 ${clientesNovos.length} contas novas!`);
+  }
+
+  /* Só redesenha se algo mudou, para não piscar a tela à toa. */
+  const mudou = pedidosNovos.length || clientesNovos.length
+    || contarNaoLidas() !== naoLidasAntes
+    || (erroPedidosBanco + '|' + erroClientesBanco) !== errosAntes;
+  if(mudou){
+    renderizarAdmin();
+    if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
+  }
+}
+
+/* Caixa vermelha que explica por que uma lista não pôde ser lida. */
+function avisoFalhaLeitura(motivo, oQue){
+  return `
+    <div style="background:#fdeaea;color:var(--vermelho-escuro);padding:12px 14px;
+                border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.55;">
+      <b>O banco não deixou ler ${oQue}.</b><br>
+      Motivo informado pelo Supabase: <code>${escapeHtml(motivo)}</code><br>
+      Quase sempre isso quer dizer que a versão mais nova do arquivo
+      <b>supabase/schema.sql</b> ainda não foi rodada no <b>SQL Editor</b>.
+    </div>`;
 }
 
 /* ---- notificações do administrador ----
@@ -1374,14 +1661,14 @@ async function registrarEvento(tipo, titulo, detalhe){
   }catch(e){ console.warn('[notificação]', e); }
 }
 
-async function carregarEventos(){
+async function carregarEventos(silencioso){
   if(!bancoAtivo || !adminLogado) return;
   try{
     const { data, error } = await bd.from('eventos')
       .select('*').order('criado_em', {ascending:false}).limit(200);
-    if(error){ avisarErroBanco(error, 'ler notificações'); return; }
+    if(error){ if(!silencioso) avisarErroBanco(error, 'ler notificações'); return; }
     eventos = data || [];
-  }catch(e){ avisarErroBanco(e, 'ler notificações'); }
+  }catch(e){ if(!silencioso) avisarErroBanco(e, 'ler notificações'); }
 }
 
 function contarNaoLidas(){
@@ -1421,7 +1708,14 @@ function limparNotificacoes(){
 }
 
 async function atualizarNotificacoes(){
-  await carregarEventos();
+  /* Pedidos junto: quem vê o aviso de pedido novo vai direto procurá-lo na
+     aba Pedidos, e ele precisa já estar lá. */
+  await Promise.all([carregarEventos(), carregarPedidosDoBanco(), carregarClientesDoBanco()]);
+  renderizarAdmin();
+}
+
+async function atualizarClientes(){
+  await carregarClientesDoBanco();
   renderizarAdmin();
 }
 
@@ -1467,11 +1761,18 @@ async function entrarComoAdmin(){
   }
   adminLogado = true;
   salvar('lv_sessao_admin', true);
+  /* A sessão no servidor é uma só: entrar como administrador substitui
+     qualquer sessão de cliente que houvesse neste navegador. */
+  clienteLogado = null;
+  localStorage.removeItem('lv_sessao_cliente');
+  renderizarAreaConta();
   abaAdminAtiva = 'produtos';
   await carregarPedidosDoBanco();
   await carregarEventos();
+  await carregarClientesDoBanco();
   renderizarAdmin();
   renderizarPedidos();
+  iniciarAtualizacaoAutomatica();
   mostrarToast('Bem-vindo(a) à administração! 🔐');
 }
 
@@ -1492,14 +1793,29 @@ async function conectarBanco(){
   }
   try{
     const { data } = await bd.auth.getSession();
-    if(data && data.session && await confirmarSeEhAdmin()){
-      adminLogado = true;
-      salvar('lv_sessao_admin', true);
-      await carregarEventos();
+    if(data && data.session){
+      if(await confirmarSeEhAdmin()){
+        adminLogado = true;
+        salvar('lv_sessao_admin', true);
+        await carregarEventos();
+        await carregarClientesDoBanco();
+      }else{
+        /* Sessão de cliente: quem abriu o site já estava logado na loja. */
+        await entrarComoCliente(data.session.user, data.session.user.email);
+      }
+      await carregarPedidosDoBanco();
+    }else{
+      /* Sem sessão no servidor não há cliente logado, por mais que este
+         navegador tenha guardado algo de uma visita anterior. */
+      clienteLogado = null;
+      localStorage.removeItem('lv_sessao_cliente');
     }
   }catch(e){ console.warn('[banco] sessão', e); }
   await carregarDoBanco();
-  if(adminLogado) await carregarPedidosDoBanco();
+  if(adminLogado){
+    await carregarPedidosDoBanco();
+    iniciarAtualizacaoAutomatica();
+  }
   atualizarSeloBanco();
   atualizarTelas();
   renderizarAdmin();
@@ -1769,6 +2085,61 @@ function renderizarLoja(){
   }).join('');
 }
 
+/* ==================== EFEITO HOLOGRÁFICO DOS CARDS ====================
+   Os listeners ficam na grade, não em cada card: a vitrine é remontada com
+   innerHTML toda vez que muda de catálogo, e listeners presos aos cards se
+   perderiam nessa troca. A grade em si nunca é substituída. */
+(function(){
+  const grid = document.getElementById('gridProdutos');
+  if(!grid) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const INCLINACAO = 12;  // graus no canto
+  const VARREDURA = 220;  // o quanto a faixa colorida corre (em %)
+
+  function mover(e){
+    const card = e.target.closest('.card-produto');
+    if(!card) return;
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    if(x < 0 || x > 1 || y < 0 || y > 1) return;
+    card.style.setProperty('--mx', (x * 100) + '%');
+    card.style.setProperty('--my', (y * 100) + '%');
+    /* Centrado em 50% e ampliado: o ponteiro andar meia largura joga a faixa
+       muito além da borda, e as cores trocam de verdade. */
+    card.style.setProperty('--gx', (50 + (x - 0.5) * VARREDURA) + '%');
+    card.style.setProperty('--gy', (50 + (y - 0.5) * VARREDURA) + '%');
+    card.style.setProperty('--rx', ((0.5 - y) * INCLINACAO) + 'deg');
+    card.style.setProperty('--ry', ((x - 0.5) * INCLINACAO) + 'deg');
+    card.classList.add('holo');
+  }
+
+  function soltar(card){
+    if(!card) return;
+    card.classList.remove('holo');
+    card.style.removeProperty('--rx');
+    card.style.removeProperty('--ry');
+    card.style.removeProperty('--gx');
+    card.style.removeProperty('--gy');
+  }
+
+  grid.addEventListener('pointermove', mover);
+
+  grid.addEventListener('pointerout', function(e){
+    const card = e.target.closest('.card-produto');
+    /* pointerout dispara também ao passar de um filho para outro dentro do
+       mesmo card; só solta quando o ponteiro realmente sai dele. */
+    if(card && !card.contains(e.relatedTarget)) soltar(card);
+  });
+
+  /* No toque não existe "sair com o dedo": o efeito acompanha enquanto o
+     dedo está na tela e some ao levantar. O padrão do navegador é
+     preservado, então a rolagem continua funcionando normalmente. */
+  grid.addEventListener('pointerup', e => soltar(e.target.closest('.card-produto')));
+  grid.addEventListener('pointercancel', e => soltar(e.target.closest('.card-produto')));
+})();
+
 /* ==================== CARRINHO ==================== */
 function adicionarAoCarrinho(produtoId){
   const produto = produtos.find(p => p.id === produtoId);
@@ -1926,7 +2297,12 @@ function atualizarTipoRecebimento(){
 }
 atualizarMetodoPag();
 
-function confirmarPagamento(){
+/* Trava contra clique duplo: sem ela, dois toques rápidos no botão viram dois
+   pedidos iguais enquanto o primeiro ainda está sendo enviado. */
+let enviandoPedido = false;
+
+async function confirmarPagamento(){
+  if(enviandoPedido) return;
   const nome = document.getElementById('pagNome').value.trim();
   const email = document.getElementById('pagEmail').value.trim();
   const tipoRecebimento = document.querySelector('input[name="tipoRecebimento"]:checked').value;
@@ -1984,13 +2360,37 @@ function confirmarPagamento(){
     total,
     status: 'Pendente'
   };
+  /* Com banco, o pedido só conta como feito depois que o servidor confirmar
+     a gravação. Antes, a tela de "pedido registrado" aparecia de qualquer
+     jeito e, se o banco recusasse, o cliente achava que tinha comprado e o
+     pedido nunca chegava ao administrador. */
+  if(bancoAtivo){
+    const botao = document.querySelector('#overlayPagamento button[onclick="confirmarPagamento()"]');
+    enviandoPedido = true;
+    if(botao){ botao.disabled = true; botao.textContent = 'Enviando pedido…'; }
+    const gravou = await bdCriarPedido(novoPedido);
+    enviandoPedido = false;
+    if(botao){ botao.disabled = false; botao.textContent = 'Confirmar pagamento'; }
+    if(!gravou){
+      // devolve o estoque que foi baixado só na tela, e mantém o carrinho
+      itensPedido.forEach(i => {
+        const p = produtos.find(pr => pr.id === i.produtoId);
+        if(p) p.estoque += i.qtd;
+      });
+      salvar('lv_produtos', produtos);
+      mostrarErro('erroPagamento',
+        'Não consegui registrar seu pedido agora. Verifique a internet e tente de novo.');
+      return;
+    }
+    registrarEvento('pedido', 'Novo pedido recebido',
+      `${novoPedido.numero} — ${nome} (${email}) — ${itensPedido.length} item(ns) — total ${formatarPreco(total)} — ${rotuloMetodo(metodo)}`);
+  }
+  /* A baixa de estoque no banco é feita pelo próprio servidor quando o pedido
+     é gravado (gatilho pedidos_baixa_estoque no schema.sql). O navegador do
+     cliente não tem permissão para alterar produtos. */
+
   pedidos.push(novoPedido);
   salvar('lv_pedidos', pedidos);
-  bdSalvarPedido(novoPedido);
-  itensPedido.forEach(i => {
-    const p = produtos.find(pr => pr.id === i.produtoId);
-    if(p) bdSalvarProduto(p);
-  });
 
   // limpa carrinho
   carrinho = [];
@@ -2316,6 +2716,9 @@ function renderizarAdmin(){
 function mudarAbaAdmin(aba){
   abaAdminAtiva = aba;
   renderizarAdmin();
+  /* Abrir uma aba é sinal de que o administrador quer ver o estado atual:
+     busca na hora, sem esperar a próxima rodada automática. */
+  atualizarPainelAdmin();
 }
 
 function renderizarSubAbaAdmin(){
@@ -2388,23 +2791,45 @@ function renderizarSubAbaAdmin(){
       </div>`}
     `;
   } else if(abaAdminAtiva === 'pedidos'){
+    const topo = (bancoAtivo ? `
+      <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:12.5px;color:var(--cinza-texto);">Atualiza sozinho a cada 15 segundos.</div>
+        <button class="btn btn-secundario" onclick="atualizarNotificacoes()">🔄 Atualizar</button>
+      </div>` : '')
+      + (erroPedidosBanco ? avisoFalhaLeitura(erroPedidosBanco, 'os pedidos') : '');
     if(pedidos.length === 0){
-      cont.innerHTML = `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
+      cont.innerHTML = topo + `<div class="vazio"><div class="emoji">📋</div>Nenhum pedido registrado ainda.</div>`;
       return;
     }
-    cont.innerHTML = ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
+    cont.innerHTML = topo + ordenarPedidosDesc(pedidos).map(ped => cardPedido(ped, true, true)).join('');
   } else if(abaAdminAtiva === 'contas'){
-    if(contas.length === 0){
-      cont.innerHTML = `<div class="vazio"><div class="emoji">👥</div>Nenhuma conta cadastrada ainda.</div>`;
+    /* Com banco, as contas são de verdade e vêm do servidor. Sem banco, a
+       lista local só enxerga quem se cadastrou neste mesmo navegador. */
+    const lista = bancoAtivo
+      ? clientesBanco.map(c => ({id: c.user_id, nome: c.nome, email: c.email, dataCadastro: c.criado_em}))
+      : [...contas];
+    const topo = bancoAtivo
+      ? `<div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+           <div style="font-size:12.5px;color:var(--cinza-texto);">Atualiza sozinho a cada 15 segundos.</div>
+           <button class="btn btn-secundario" onclick="atualizarClientes()">🔄 Atualizar</button>
+         </div>` + (erroClientesBanco ? avisoFalhaLeitura(erroClientesBanco, 'as contas cadastradas') : '')
+      : `<div style="background:#fff4e0;color:#8a6400;padding:11px 14px;border-radius:8px;
+                     font-size:13px;margin-bottom:14px;line-height:1.5;">
+           Sem banco de dados configurado, esta lista mostra apenas quem se
+           cadastrou <b>neste navegador</b>. Contas criadas por clientes em
+           outros aparelhos não aparecem aqui.
+         </div>`;
+    if(lista.length === 0){
+      cont.innerHTML = topo + `<div class="vazio"><div class="emoji">👥</div>Nenhuma conta cadastrada ainda.</div>`;
       return;
     }
-    cont.innerHTML = `
+    cont.innerHTML = topo + `
       <div class="tabela-wrap">
         <table>
           <thead><tr><th>Nome</th><th>E-mail</th><th>Cadastrado em</th><th>Pedidos</th></tr></thead>
           <tbody>
-            ${[...contas].sort((a,b)=> new Date(b.dataCadastro) - new Date(a.dataCadastro)).map(c => {
-              const qtdPedidos = pedidos.filter(p => p.clienteContaId === c.id).length;
+            ${lista.sort((a,b)=> new Date(b.dataCadastro) - new Date(a.dataCadastro)).map(c => {
+              const qtdPedidos = pedidos.filter(p => String(p.clienteContaId) === String(c.id)).length;
               return `
                 <tr>
                   <td>${escapeHtml(c.nome)}</td>
@@ -2435,7 +2860,7 @@ function renderizarSubAbaAdmin(){
       cont.innerHTML = topo + `<div class="vazio"><div class="emoji">🔔</div>Nenhuma notificação por enquanto.</div>`;
       return;
     }
-    const icones = {conta:'👤', conta_invalida:'⚠️', carrinho:'🛒', pagamento:'💳'};
+    const icones = {conta:'👤', conta_invalida:'⚠️', carrinho:'🛒', pagamento:'💳', pedido:'✅'};
     cont.innerHTML = topo + eventos.map(ev => `
       <div class="notif ${ev.lido ? 'lida' : 'nao-lida'}">
         <div class="icone">${icones[ev.tipo] || '🔔'}</div>
@@ -2490,10 +2915,16 @@ function loginAdmin(){
 }
 
 async function logoutAdmin(){
+  pararAtualizacaoAutomatica();
   adminLogado = false;
   localStorage.removeItem('lv_sessao_admin');
   if(bancoAtivo){
     try{ await bd.auth.signOut(); }catch(e){ console.warn('[banco] sair', e); }
+    /* Sair da administração encerra a sessão inteira no servidor, então os
+       dados que dependiam dela não podem continuar na tela. */
+    pedidos = [];
+    eventos = [];
+    clientesBanco = [];
   }
   renderizarAdmin();
   if(document.getElementById('secao-pedidos').classList.contains('ativa')) renderizarPedidos();
