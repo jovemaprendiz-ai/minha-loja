@@ -37,6 +37,11 @@
     font-size:22px;font-weight:800;color:var(--vermelho);
     display:flex;align-items:center;gap:8px;
   }
+  .logo img{object-fit:cover;display:block;flex-shrink:0;}
+  .logo-previa-box{
+    background:#fff;border:1px solid var(--cinza-borda);border-radius:10px;
+    padding:16px 18px;margin-bottom:18px;
+  }
   .conta-area{display:flex;align-items:center;gap:10px;}
   .selo-catalogo{
     font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;
@@ -393,7 +398,7 @@
 
 <header class="topo">
   <div class="topo-inner">
-    <div class="logo">Comércio Do Luiz💨</div>
+    <div class="logo"><img id="logoLoja" alt="" style="display:none;"><span>Comércio Do Luiz💨</span></div>
     <div class="conta-area">
       <span class="selo-catalogo" id="seloCatalogo" style="display:none;"></span>
       <span id="areaConta" style="display:flex;align-items:center;gap:10px;"></span>
@@ -740,7 +745,7 @@ const PAGINA_PUBLICADA = '<!' + 'DOCTYPE html>' + '\n' + document.documentElemen
    está com uma cópia antiga do site aberta (aba esquecida, cache do
    celular), dá para ver isso na hora, em vez de caçar um defeito que já foi
    corrigido. Notificação sem versão = cliente usando a versão antiga. */
-const VERSAO_LOJA = '2026-09-30.1';
+const VERSAO_LOJA = '2026-09-30.2';
 const SENHA_ADMIN = "admin123";
 const CHAVE_PIX = "106.459.049-70";
 const TITULAR_PIX = "João Eduardo Pompeo Neves";
@@ -1896,6 +1901,7 @@ async function conectarBanco(){
     }
   }catch(e){ console.warn('[banco] sessão', e); }
   await carregarDoBanco();
+  await carregarConfiguracoes();
   if(adminLogado){
     await carregarPedidosDoBanco();
     iniciarAtualizacaoAutomatica();
@@ -1904,6 +1910,143 @@ async function conectarBanco(){
   renderizarAreaConta();
   atualizarTelas();
   renderizarAdmin();
+}
+
+/* ==================== LOGO DA LOJA ====================
+   Fica na tabela configuracoes (uma linha só), que todo visitante lê e só o
+   administrador altera. A imagem vai para o mesmo bucket das fotos.
+   Uma cópia fica no navegador para a logo aparecer já no primeiro instante,
+   sem piscar enquanto o banco responde. */
+let configLoja = {logoUrl:'', formato:'redondo', largura:48, altura:48};
+let rascunhoLogo = null;   // alterações na aba Logo ainda não salvas
+let salvandoLogo = false;
+const TIPOS_LOGO = {'image/png':'png', 'image/jpeg':'jpg', 'image/webp':'webp'};
+
+function limitarTamanhoLogo(v){
+  const n = parseInt(v, 10);
+  return isNaN(n) ? 48 : Math.min(200, Math.max(16, n));
+}
+
+function pintarLogo(img, c, src){
+  img.src = src;
+  img.style.width = limitarTamanhoLogo(c.largura) + 'px';
+  img.style.height = limitarTamanhoLogo(c.altura) + 'px';
+  img.style.borderRadius = c.formato === 'quadrado' ? '0' : '50%';
+  img.style.display = 'block';
+}
+
+function aplicarLogo(){
+  const img = document.getElementById('logoLoja');
+  if(!img) return;
+  if(!configLoja.logoUrl){ img.style.display = 'none'; img.removeAttribute('src'); return; }
+  pintarLogo(img, configLoja, configLoja.logoUrl);
+}
+
+async function carregarConfiguracoes(){
+  if(!bancoAtivo) return;
+  try{
+    const { data, error } = await bd.from('configuracoes').select('*').eq('id', 1).maybeSingle();
+    if(error || !data) return;  // tabela ainda não criada: segue sem logo
+    configLoja = {
+      logoUrl: /^https:\/\//i.test(data.logo_url || '') ? data.logo_url : '',
+      formato: data.logo_formato === 'quadrado' ? 'quadrado' : 'redondo',
+      largura: limitarTamanhoLogo(data.logo_largura),
+      altura: limitarTamanhoLogo(data.logo_altura)
+    };
+    salvar('lv_config', configLoja);
+    aplicarLogo();
+  }catch(e){ console.warn('[logo]', e); }
+}
+
+/* Atualiza só a prévia, sem redesenhar a aba: redesenhar tiraria o cursor
+   do campo de largura/altura a cada número digitado. */
+function atualizarPreviaLogo(){
+  const box = document.getElementById('logoPrevia');
+  if(!box || !rascunhoLogo) return;
+  const src = rascunhoLogo.previewUrl || rascunhoLogo.logoUrl;
+  let img = box.querySelector('img');
+  if(!src){ if(img) img.remove(); return; }
+  if(!img){ img = document.createElement('img'); img.alt = ''; box.prepend(img); }
+  pintarLogo(img, rascunhoLogo, src);
+}
+
+function mudarLogo(campo, valor){
+  if(!rascunhoLogo) return;
+  rascunhoLogo[campo] = valor;
+  atualizarPreviaLogo();
+}
+
+function soltarPreviewLogo(){
+  if(rascunhoLogo && rascunhoLogo.previewUrl) URL.revokeObjectURL(rascunhoLogo.previewUrl);
+}
+
+function escolherLogo(input){
+  const arquivo = input.files && input.files[0];
+  input.value = '';
+  if(!arquivo || !rascunhoLogo) return;
+  if(!TIPOS_LOGO[arquivo.type]){ mostrarToast('Use uma imagem PNG, JPG ou WEBP.'); return; }
+  if(arquivo.size > 2 * 1024 * 1024){ mostrarToast('Imagem grande demais (máximo 2 MB).'); return; }
+  soltarPreviewLogo();
+  rascunhoLogo.arquivo = arquivo;
+  rascunhoLogo.previewUrl = URL.createObjectURL(arquivo);
+  renderizarSubAbaAdmin();
+}
+
+function removerLogo(){
+  if(!rascunhoLogo) return;
+  soltarPreviewLogo();
+  rascunhoLogo.arquivo = null;
+  rascunhoLogo.previewUrl = '';
+  rascunhoLogo.logoUrl = '';
+  renderizarSubAbaAdmin();
+}
+
+function descartarLogo(){
+  soltarPreviewLogo();
+  rascunhoLogo = null;
+  renderizarSubAbaAdmin();
+}
+
+async function salvarLogo(){
+  if(!rascunhoLogo || salvandoLogo) return;
+  salvandoLogo = true;
+  try{
+    const r = rascunhoLogo;
+    let url = r.logoUrl;
+    if(r.arquivo){
+      mostrarToast('Enviando a logo…');
+      const nome = 'logo-' + Date.now() + '.' + TIPOS_LOGO[r.arquivo.type];
+      const { error } = await bd.storage.from('fotos')
+        .upload(nome, r.arquivo, {contentType: r.arquivo.type, upsert: false});
+      if(error){ avisarErroBanco(error, 'enviar logo'); return; }
+      url = bd.storage.from('fotos').getPublicUrl(nome).data.publicUrl;
+    }
+    const nova = {
+      logoUrl: url, formato: r.formato === 'quadrado' ? 'quadrado' : 'redondo',
+      largura: limitarTamanhoLogo(r.largura), altura: limitarTamanhoLogo(r.altura)
+    };
+    const { error } = await bd.from('configuracoes').upsert({
+      id: 1, logo_url: nova.logoUrl, logo_formato: nova.formato,
+      logo_largura: nova.largura, logo_altura: nova.altura,
+      atualizado_em: new Date().toISOString()
+    });
+    if(error){
+      console.warn('[logo]', error);
+      mostrarToast(/configuracoes|relation|schema cache/i.test(error.message || '')
+        ? 'Falta criar a tabela configuracoes no Supabase (SQL Editor).'
+        : 'Não consegui salvar a logo. Tente de novo.');
+      return;
+    }
+    configLoja = nova;
+    salvar('lv_config', configLoja);
+    aplicarLogo();
+    soltarPreviewLogo();
+    rascunhoLogo = null;
+    renderizarSubAbaAdmin();
+    mostrarToast('Logo salva! ✅');
+  }finally{
+    salvandoLogo = false;
+  }
 }
 
 function atualizarSeloBanco(){
@@ -2889,6 +3032,7 @@ function renderizarAdmin(){
       <button class="${abaAdminAtiva==='notificacoes'?'ativo':''}" onclick="mudarAbaAdmin('notificacoes')">🔔 Notificações${contarNaoLidas() ? `<span class="badge-notif">${contarNaoLidas()}</span>` : ''}</button>
       <button class="${abaAdminAtiva==='contas'?'ativo':''}" onclick="mudarAbaAdmin('contas')">👥 Contas cadastradas</button>
       <button class="${abaAdminAtiva==='historico'?'ativo':''}" onclick="mudarAbaAdmin('historico')">🗑️ Histórico de cancelamentos</button>
+      <button class="${abaAdminAtiva==='logo'?'ativo':''}" onclick="mudarAbaAdmin('logo')">🖼️ Logo</button>
     </div>
     <div id="adminSubConteudo"></div>
   `;
@@ -3055,6 +3199,57 @@ function renderizarSubAbaAdmin(){
       </div>
     `).join('');
 
+  } else if(abaAdminAtiva === 'logo'){
+    if(!bancoAtivo){
+      cont.innerHTML = `<div class="vazio"><div class="emoji">🖼️</div>
+        A logo precisa do banco de dados configurado.</div>`;
+      return;
+    }
+    if(!rascunhoLogo) rascunhoLogo = Object.assign({arquivo:null, previewUrl:''}, configLoja);
+    const r = rascunhoLogo;
+    const temImagem = !!(r.previewUrl || r.logoUrl);
+    cont.innerHTML = `
+      <div class="logo-previa-box">
+        <div style="font-size:12px;color:var(--cinza-texto);margin-bottom:10px;">Pré-visualização do topo do site</div>
+        <div class="logo" id="logoPrevia"><span>Comércio Do Luiz💨</span></div>
+      </div>
+      <div class="campo">
+        <label>Imagem da logo</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <label class="btn btn-secundario btn-sm" style="display:inline-block;margin:0;">
+            📷 Escolher imagem
+            <input type="file" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="escolherLogo(this)">
+          </label>
+          ${temImagem ? `<button class="btn btn-perigo btn-sm" onclick="removerLogo()">Remover logo</button>` : ''}
+        </div>
+        <div class="foto-dica" style="margin-top:6px;">PNG, JPG ou WEBP, até 2 MB. PNG com fundo transparente fica melhor.</div>
+      </div>
+      <div class="campo" style="max-width:340px;">
+        <label>Formato</label>
+        <div class="metodo-pag">
+          <label><input type="radio" name="logoFormato" value="redondo" ${r.formato === 'redondo' ? 'checked' : ''}
+            onchange="mudarLogo('formato', this.value)"><span>⚪ Redondo</span></label>
+          <label><input type="radio" name="logoFormato" value="quadrado" ${r.formato === 'quadrado' ? 'checked' : ''}
+            onchange="mudarLogo('formato', this.value)"><span>⬜ Quadrado</span></label>
+        </div>
+      </div>
+      <div class="linha2" style="max-width:340px;">
+        <div class="campo">
+          <label>Largura (px)</label>
+          <input type="number" min="16" max="200" value="${escaparAtributo(r.largura)}" oninput="mudarLogo('largura', this.value)">
+        </div>
+        <div class="campo">
+          <label>Altura (px)</label>
+          <input type="number" min="16" max="200" value="${escaparAtributo(r.altura)}" oninput="mudarLogo('altura', this.value)">
+        </div>
+      </div>
+      <div class="foto-dica" style="margin:-6px 0 16px;">Entre 16 e 200. Largura e altura iguais deixam o redondo um círculo perfeito.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primario" onclick="salvarLogo()">Salvar logo</button>
+        <button class="btn btn-secundario" onclick="descartarLogo()">Descartar alterações</button>
+      </div>
+    `;
+    atualizarPreviaLogo();
   } else if(abaAdminAtiva === 'historico'){
     if(historicoCancelamentos.length === 0){
       cont.innerHTML = `<div class="vazio"><div class="emoji">🗑️</div>Nenhum pedido cancelado ou excluído até agora.</div>`;
@@ -3240,6 +3435,8 @@ function excluirProduto(id){
 
 /* ==================== INICIALIZAÇÃO ==================== */
 function iniciar(){
+  configLoja = Object.assign(configLoja, carregar('lv_config', {}));
+  aplicarLogo();
   renderizarAreaConta();
   renderizarLoja();
   atualizarBadgeCarrinho();
