@@ -1,0 +1,39 @@
+{
+  "produtos": [
+    {
+      "id": 1790188511378,
+      "nome": "celular",
+      "descricao": "",
+      "preco": 1500,
+      "estoque": 99,
+      "emoji": "📦",
+      "imagem": "",
+      "imagemId": "",
+      "catalogos": []
+    },
+    {
+      "id": 1790188539090,
+      "nome": "coisas",
+      "descricao": "",
+      "preco": 13,
+      "estoque": 22,
+      "emoji": "📦",
+      "imagem": "",
+      "imagemId": "",
+      "catalogos": []
+    },
+    {
+      "id": 1790188562412,
+      "nome": "PC",
+      "descricao": "",
+      "preco": 7499.99,
+      "estoque": 51,
+      "emoji": "📦",
+      "imagem": "",
+      "imagemId": "",
+      "catalogos": []
+    }
+  ],
+  "catalogos": [],
+  "atualizadoEm": "2026-09-23T18:52:04.169Z"
+}
