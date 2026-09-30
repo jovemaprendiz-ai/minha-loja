@@ -116,6 +116,17 @@ create table if not exists public.eventos (
 create index if not exists eventos_criado_em_idx
   on public.eventos (criado_em desc);
 
+-- Configurações da loja (logo ao lado do nome). Uma única linha, id = 1.
+create table if not exists public.configuracoes (
+  id             integer primary key default 1 check (id = 1),
+  logo_url       text not null default '',
+  logo_formato   text not null default 'redondo' check (logo_formato in ('redondo','quadrado')),
+  logo_largura   integer not null default 48 check (logo_largura between 16 and 200),
+  logo_altura    integer not null default 48 check (logo_altura between 16 and 200),
+  atualizado_em  timestamptz not null default now()
+);
+insert into public.configuracoes (id) values (1) on conflict (id) do nothing;
+
 
 -- ----------------------------------------------------------------------------
 -- 2. FUNÇÃO AUXILIAR: "quem está pedindo é administrador?"
@@ -239,6 +250,7 @@ alter table public.produtos  enable row level security;
 alter table public.pedidos   enable row level security;
 alter table public.eventos   enable row level security;
 alter table public.clientes  enable row level security;
+alter table public.configuracoes enable row level security;
 
 
 -- ----------------------------------------------------------------------------
@@ -286,6 +298,22 @@ create policy "produtos leitura publica"
 drop policy if exists "produtos escrita admin" on public.produtos;
 create policy "produtos escrita admin"
   on public.produtos for all
+  to authenticated
+  using (public.eh_admin())
+  with check (public.eh_admin());
+
+
+-- ---- configuracoes ---------------------------------------------------------
+-- Todo visitante lê (a logo aparece para todos). Só admin altera.
+drop policy if exists "configuracoes leitura publica" on public.configuracoes;
+create policy "configuracoes leitura publica"
+  on public.configuracoes for select
+  to anon, authenticated
+  using (true);
+
+drop policy if exists "configuracoes escrita admin" on public.configuracoes;
+create policy "configuracoes escrita admin"
+  on public.configuracoes for all
   to authenticated
   using (public.eh_admin())
   with check (public.eh_admin());
